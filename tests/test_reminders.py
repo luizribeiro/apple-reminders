@@ -2,12 +2,12 @@
 import pytest
 from apple_reminders import RemindersAPI, Reminder, ReminderList
 
-def test_reminders_api_initialization():
+def test_reminders_api_initialization() -> None:
     """Test that we can initialize the RemindersAPI."""
     api = RemindersAPI()
     assert api is not None
 
-def test_get_lists():
+def test_get_lists() -> None:
     """Test that we can get reminder lists."""
     api = RemindersAPI()
     lists = api.get_lists()
@@ -17,7 +17,7 @@ def test_get_lists():
         assert hasattr(lists[0], 'id')
         assert hasattr(lists[0], 'title')
 
-def test_get_all_reminders():
+def test_get_all_reminders() -> None:
     """Test that we can get all reminders."""
     api = RemindersAPI()
     reminders = api.get_all_reminders()

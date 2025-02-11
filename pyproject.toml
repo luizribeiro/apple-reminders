@@ -24,6 +24,7 @@ dev = [
     "pytest-timeout>=2.1.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
+    "mypy>=1.8.0",
 ]
 
 [build-system]
@@ -53,3 +54,16 @@ known-first-party = ["apple_reminders"]
 line-length = 100
 target-version = ["py39"]
 include = '\.pyi?$'
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+packages = ["apple_reminders"]

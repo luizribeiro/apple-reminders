@@ -8,7 +8,7 @@ import ctypes
 import json
 import os
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -114,19 +114,19 @@ class ReminderList:
 class RemindersAPI:
     """Main interface for interacting with Apple Reminders."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the RemindersAPI."""
         self._reader = _lib.CreateRemindersReader()
         if not self._reader:
             raise RuntimeError("Failed to initialize RemindersReader")
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Clean up resources when the object is destroyed."""
         if hasattr(self, '_reader') and self._reader:
             _lib.DestroyRemindersReader(self._reader)
             self._reader = None
 
-    def _handle_json_response(self, result_ptr: ctypes.POINTER(ctypes.c_char)) -> Any:
+    def _handle_json_response(self, result_ptr: Any) -> Any:
         """Handle JSON response from the C library."""
         try:
             result_str = ctypes.string_at(result_ptr).decode('utf-8')
