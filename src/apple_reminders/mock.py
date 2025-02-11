@@ -1,11 +1,32 @@
 import ctypes
 import json
 import sys
-from typing import Dict, Any, List, Tuple, Optional, cast
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from typing_extensions import TypeAlias, TypeVar
 from unittest.mock import patch
 from uuid import uuid4
 
-from apple_reminders import mock
+from apple_reminders import mock, Reminder, ReminderList
+
+
+T = TypeVar("T")
+
+
+def decode_char_p(ptr: Union[ctypes.c_char_p, bytes]) -> str:
+    """Safely decode a c_char_p value or bytes into a string."""
+    if isinstance(ptr, bytes):
+        return ptr.decode("utf-8")
+    if ptr.value is None:
+        raise ValueError("Cannot decode None value from c_char_p")
+    return ptr.value.decode("utf-8")
+
+
+# Type alias that matches the library's LP_c_char type
+if TYPE_CHECKING:
+    LP_c_char: TypeAlias = ctypes.POINTER[ctypes.c_char]  # type: ignore
+else:
+    LP_c_char = ctypes.POINTER(ctypes.c_char)
 
 
 # Mock Swift API Implementation
@@ -13,16 +34,18 @@ class MockSwiftAPI:
     active_pointers: Dict[int, Any] = {}  # Shared active pointers registry
 
     def __init__(self) -> None:
-        self.lists: Dict[str, Dict[str, Any]] = {}  # Stores Reminder lists and their reminders.
+        self.lists: Dict[str, ReminderList] = {}  # Stores ReminderList objects
+        self.reminders: Dict[str, Dict[str, Reminder]] = {}  # Stores Reminder objects by list_id
         # Create and register a mock reader pointer
         self.reader_pointer = ctypes.c_void_p(id(self))
         MockSwiftAPI.active_pointers[id(self.reader_pointer)] = self.reader_pointer
 
     # Helper to create a char pointer result
-    def _to_char_ptr(self, data: Any) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
+    def _to_char_ptr(self, data: Any) -> LP_c_char:
         json_data = json.dumps(data).encode("utf-8")  # Convert data to JSON bytes
         buffer = ctypes.create_string_buffer(json_data)  # Create string buffer
-        return ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
+        ptr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
+        return ptr
 
     # Mock CreateRemindersReader Functionality
     def CreateRemindersReader(self) -> ctypes.c_void_p:
@@ -34,24 +57,25 @@ class MockSwiftAPI:
             del MockSwiftAPI.active_pointers[id(pointer)]  # Remove from active pointers registry
 
     # Mock CreateList Functionality
-    def CreateList(self, _: ctypes.c_void_p, title: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        title_buffer = ctypes.cast(title, ctypes.c_char_p).value
-        if title_buffer is None:
-            raise ValueError("Invalid title - cannot decode None")
-        title_str = title_buffer.decode("utf-8")
+    def CreateList(self, _: ctypes.c_void_p, title: ctypes.c_char_p) -> LP_c_char:
+        data = json.loads(decode_char_p(title))
+        title_str = data.get("title")
+        if not title_str:
+            raise ValueError("Title is required")
+
         list_id = str(uuid4())
-        if title_str in (lst["name"] for lst in self.lists.values()):
+        if title_str in (lst.title for lst in self.lists.values()):
             raise ValueError(f"List with name '{title_str}' already exists.")
 
-        self.lists[list_id] = {"name": title_str, "reminders": {}}
+        reminder_list = ReminderList(id=list_id, title=title_str, color=data.get("color"))
+        self.lists[list_id] = reminder_list
+        self.reminders[list_id] = {}  # Initialize empty reminders dict for this list
+
         return self._to_char_ptr({"id": list_id})
 
     # Mock AddReminder Functionality
-    def CreateReminder(self, _: ctypes.c_void_p, input_data: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        input_buffer = ctypes.cast(input_data, ctypes.c_char_p).value
-        if input_buffer is None:
-            raise ValueError("Invalid input data - cannot decode None")
-        data = json.loads(input_buffer.decode("utf-8"))
+    def CreateReminder(self, _: ctypes.c_void_p, input_data: ctypes.c_char_p) -> LP_c_char:
+        data = json.loads(decode_char_p(input_data))
         list_id = data.get("listId")
         title = data.get("title")
 
@@ -61,53 +85,52 @@ class MockSwiftAPI:
             raise ValueError("Title is required.")
 
         reminder_id = str(uuid4())
-        self.lists[list_id]["reminders"][reminder_id] = {
-            "title": title,
-            "notes": data.get("notes", ""),
-            "due_date": data.get("dueDate"),
-            "completed": False,
-        }
+        now = datetime.now(timezone.utc)
+
+        reminder = Reminder(
+            id=reminder_id,
+            title=title,
+            notes=data.get("notes"),
+            due_date=datetime.fromisoformat(data["dueDate"]) if data.get("dueDate") else None,
+            completed=False,
+            priority=data.get("priority", 5),
+            list_id=list_id,
+            creation_date=now,
+            modification_date=now,
+        )
+
+        self.reminders[list_id][reminder_id] = reminder
         return self._to_char_ptr({"id": reminder_id})
 
     # Mock SearchReminders Functionality
-    def SearchReminders(self, _: ctypes.c_void_p, query: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        query_buffer = ctypes.cast(query, ctypes.c_char_p).value
-        if query_buffer is None:
-            raise ValueError("Query cannot be None")
-        query_str = query_buffer.decode("utf-8")  # Decode query from bytes
+    def SearchReminders(self, _: ctypes.c_void_p, query: ctypes.c_char_p) -> LP_c_char:
+        query_str = decode_char_p(query)
         results = []
 
-        for list_id, list_data in self.lists.items():  # Ensure correct scoping for list_id
-            for reminder_id, reminder in list_data["reminders"].items():
-                if query_str.lower() in reminder["title"].lower():
-                    results.append(
-                        {
-                            "id": reminder_id,
-                            "title": reminder["title"],
-                            "notes": reminder["notes"],
-                            "due_date": reminder["due_date"],
-                            "completed": reminder["completed"],
-                            "priority": 5,  # Default priority value
-                            "listId": list_id,
-                        }
-                    )
+        for list_id, reminders in self.reminders.items():
+            for reminder in reminders.values():
+                if query_str.lower() in reminder.title.lower():
+                    results.append(reminder.as_dict())
 
         return self._to_char_ptr(results)
 
-    # Add missing functions to match type signatures
-    def GetReminders(self, _: ctypes.c_void_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        # Stub implementation that returns an empty result
-        return self._to_char_ptr([])
+    def GetReminders(self, _: ctypes.c_void_p) -> LP_c_char:
+        all_reminders = []
+        for reminders in self.reminders.values():
+            for reminder in reminders.values():
+                all_reminders.append(reminder.as_dict())
+        return self._to_char_ptr(all_reminders)
 
-    def GetReminderLists(self, _: ctypes.c_void_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        # Stub implementation that returns an empty result
-        return self._to_char_ptr([])
+    def GetReminderLists(self, _: ctypes.c_void_p) -> LP_c_char:
+        return self._to_char_ptr([lst.as_dict() for lst in self.lists.values()])
 
-    def GetRemindersInList(self, _: ctypes.c_void_p, list_id: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
-        # Stub implementation that returns an empty result
-        return self._to_char_ptr([])
+    def GetRemindersInList(self, _: ctypes.c_void_p, list_id: ctypes.c_char_p) -> LP_c_char:
+        list_id_str = decode_char_p(list_id)
+        if list_id_str not in self.reminders:
+            return self._to_char_ptr([])
+        return self._to_char_ptr([r.as_dict() for r in self.reminders[list_id_str].values()])
 
-    def FreeString(self, ptr: "ctypes.POINTER(ctypes.c_char)") -> None:  # type: ignore
+    def FreeString(self, ptr: LP_c_char) -> None:
         # No-op implementation since Python handles memory management
         pass
 

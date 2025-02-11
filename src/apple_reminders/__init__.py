@@ -93,6 +93,26 @@ class Reminder:
             modification_date=parse_date(data.get("modificationDate")),
         )
 
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert the Reminder to a dictionary format suitable for JSON."""
+
+        def format_date(dt: Optional[datetime]) -> Optional[str]:
+            if not dt:
+                return None
+            return dt.astimezone(timezone.utc).isoformat()
+
+        return {
+            "id": self.id,
+            "title": self.title,
+            "dueDate": format_date(self.due_date),
+            "completed": self.completed,
+            "notes": self.notes,
+            "priority": self.priority,
+            "listId": self.list_id,
+            "creationDate": format_date(self.creation_date),
+            "modificationDate": format_date(self.modification_date),
+        }
+
     def __str__(self) -> str:
         status = "✓" if self.completed else "○"
         due = f", due: {self.due_date.strftime('%Y-%m-%d %H:%M')}" if self.due_date else ""
@@ -111,6 +131,10 @@ class ReminderList:
     def from_dict(cls, data: Dict[str, Any]) -> "ReminderList":
         """Create a ReminderList instance from a dictionary."""
         return cls(id=data["id"], title=data["title"], color=data.get("color"))
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert the ReminderList to a dictionary format suitable for JSON."""
+        return {"id": self.id, "title": self.title, "color": self.color}
 
     def __str__(self) -> str:
         return f"{self.title} ({self.id})"
