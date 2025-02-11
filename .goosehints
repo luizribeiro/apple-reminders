@@ -1,0 +1,7 @@
+This project contains an Apple Reminders library for Python, called `apple_reminders`.
+
+We also provide a command-line tool called `rem` for managing Apple Reminders, which uses this library. It acts as an example of library usage.
+
+All of our development environment is managed through `devenv`, while our virtual environments are setup with `uv` and automatically loaded by `devenv`. So it is important to run all of your commands from within `devenv shell`.
+
+Our tests are written with `pytest`, so you can run them with `pytest -v .` from within `devenv`.
