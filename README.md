@@ -1,187 +1,140 @@
-# 🎯 Apple Reminders CLI
+# Apple Reminders Python Library
 
-A beautiful command-line interface for Apple's Reminders app, built with Python and Swift.
+A Python library for interacting with Apple's Reminders app on macOS, providing both a programmable interface and a command-line utility.
 
-## ✨ Features
+## Features
 
-- 📋 List, create, and manage reminders from your terminal
-- 🏷️ Filter by tags, lists, due dates, and more
-- 🎨 Beautiful, colorful interface
-- 📊 Reminder statistics and insights
-- 🚀 Fast and efficient Swift backend
+### Library Features
+- Full access to Apple's Reminders through EventKit
+- Read reminders and lists
+- Filter by due date, completion status
+- Search functionality
+- Rich metadata support (priorities, notes, due dates)
 
-## 🛠️ Setup
+### Command-line Utility
+The library includes `rem`, a command-line tool for quick access to your reminders:
+```bash
+rem today              # Show today's and overdue reminders
+rem list              # List all reminders
+rem list --overdue    # Show overdue reminders
+rem lists             # Show all reminder lists
+rem stats             # Show reminder statistics
+```
+
+## Installation
 
 ### Prerequisites
+- macOS (uses Apple's EventKit)
+- Python 3.9+
+- [Nix with devenv](https://devenv.sh/getting-started/) for development
 
-1. Install Nix package manager:
+### User Installation
 ```bash
-sh <(curl -L https://nixos.org/nix/install)
+pip install apple-reminders
 ```
 
-2. Enable Nix Flakes:
-```bash
-mkdir -p ~/.config/nix
-echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-```
-
-3. Install devenv:
-```bash
-nix-channel --add https://github.com/cachix/devenv/archive/latest.tar.gz devenv 
-nix-channel --update
-```
-
-### Installation
-
+### Development Setup
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/apple-reminders.git
 cd apple-reminders
 ```
 
-2. Enter the development environment:
+2. Setup development environment:
 ```bash
 devenv shell
-```
-
-3. Install the package:
-```bash
-uv venv
+python -m venv .venv
 source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv pip install -e .
 ```
 
-## 🚀 Usage
+## Library Usage
 
-### List Reminders
+```python
+from apple_reminders import RemindersAPI
 
-Show all reminders:
+# Initialize the API
+api = RemindersAPI()
+
+# Get all reminders
+reminders = api.get_all_reminders()
+for reminder in reminders:
+    print(f"{reminder.title} - Due: {reminder.due_date}")
+
+# Get reminder lists
+lists = api.get_lists()
+for list_ in lists:
+    print(f"{list_.title}: {list_.color}")
+
+# Get today's reminders
+today = api.get_reminders_due_today()
+
+# Get overdue reminders
+overdue = api.get_overdue_reminders()
+
+# Search reminders
+results = api.search_reminders("shopping")
+```
+
+## Command-line Usage
+
+The `rem` command-line tool provides quick access to your reminders:
+
 ```bash
-rem list
+# Basic commands
+rem today              # Show today's and overdue reminders
+rem list              # List all reminders
+rem lists             # Show all reminder lists
+rem stats             # Show statistics
+
+# Filtering options
+rem list --overdue    # Show overdue reminders
+rem list --today      # Show today's reminders
+rem list --search "shopping"   # Search reminders
+rem list --list "Shopping"    # Show reminders from a specific list
+
+# Output formats
+rem list --format json    # Output as JSON
+rem today --format json   # JSON output for today's reminders
 ```
 
-Show today's reminders:
-```bash
-rem list --today
+## Reminder Objects
+
+The library provides rich objects with all reminder metadata:
+
+```python
+class Reminder:
+    id: str                  # Unique identifier
+    title: str              # Reminder title
+    due_date: datetime      # Due date (optional)
+    completed: bool         # Completion status
+    notes: str             # Notes (optional)
+    priority: int          # Priority (1=high, 5=medium, 9=low)
+    list_id: str           # Parent list ID
+    creation_date: datetime    # When created
+    modification_date: datetime  # Last modified
 ```
 
-Show overdue reminders:
-```bash
-rem list --overdue
-```
+## Permissions
 
-Filter by tag:
-```bash
-rem list --tag work
-```
+On first use, macOS will prompt for permission to access Reminders. This is required for both the library and command-line tool to function.
 
-### Add Reminders
-
-Add a simple reminder:
-```bash
-rem add "Buy groceries"
-```
-
-Add with details:
-```bash
-rem add "Team meeting" --due "tomorrow 2pm" --notes "Prepare presentation" --tags "work,important"
-```
-
-### Manage Lists
-
-Show all lists:
-```bash
-rem lists
-```
-
-### Statistics
-
-Show reminder statistics:
-```bash
-rem stats
-```
-
-## 🧑‍💻 Development
-
-### Project Structure
-
-```
-apple-reminders/
-├── src/
-│   └── apple_reminders/     # Python package
-│       ├── __init__.py      # Core library
-│       └── rem.py           # CLI interface
-├── Sources/                 # Swift code
-│   └── TodayReminders/
-│       ├── include/
-│       │   └── RemindersLib.h
-│       └── RemindersLib.swift
-├── tests/                   # Test suite
-├── devenv.nix              # Development environment
-└── pyproject.toml          # Python config
-```
-
-### Development Commands
-
-Format code:
-```bash
-black .
-```
-
-Run linter:
-```bash
-ruff check .
-```
-
-Run tests:
-```bash
-pytest
-```
-
-Build Swift library:
-```bash
-swift build
-```
-
-### Development Flow
-
-1. Enter development environment:
-```bash
-devenv shell
-```
-
-2. Make your changes
-
-3. Format and lint:
-```bash
-black .
-ruff check .
-```
-
-4. Run tests:
-```bash
-pytest
-```
-
-5. Build Swift library if needed:
-```bash
-swift build
-```
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Make your changes
+4. Run tests (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- Built on top of Apple's EventKit
+- Built on Apple's EventKit framework
 - Uses Click for CLI interface
 - Uses Rich for beautiful terminal output
