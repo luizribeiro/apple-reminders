@@ -126,11 +126,14 @@ class RemindersAPI:
         if not self._reader:
             raise RuntimeError("Failed to initialize RemindersReader")
 
-    def __del__(self) -> None:
-        """Clean up resources when the object is destroyed."""
+    def cleanup(self) -> None:
+        """Explicit cleanup for resources."""
         if hasattr(self, '_reader') and self._reader:
-            _lib.DestroyRemindersReader(self._reader)
-            self._reader = None
+            try:
+                _lib.DestroyRemindersReader(self._reader)
+                self._reader = None
+            except Exception as e:
+                print(f"Warning during cleanup: {e}")
 
     def _handle_json_response(self, result_ptr: Any) -> Any:
         """Handle JSON response from Swift library.
