@@ -7,3 +7,5 @@ All of our development environment is managed through `devenv`, while our virtua
 You can check for typing errors with `devenv shell mypy .`. Avoid using `type: ignore` and instead fix the typing errors as much as possible.
 
 Our tests are written with `pytest`, so you can run them with `devenv shell pytest -v .`.
+
+It is very important to check for both typing errors and test failures before considering the task done.
