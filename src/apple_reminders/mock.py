@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from apple_reminders import mock
 
+
 # Mock Swift API Implementation
 class MockSwiftAPI:
     active_pointers: Dict[int, Any] = {}  # Shared active pointers registry
@@ -39,9 +40,9 @@ class MockSwiftAPI:
             raise ValueError("Invalid title - cannot decode None")
         title_str = title_buffer.decode("utf-8")
         list_id = str(uuid4())
-        if title_str in (lst['name'] for lst in self.lists.values()):
+        if title_str in (lst["name"] for lst in self.lists.values()):
             raise ValueError(f"List with name '{title_str}' already exists.")
-        
+
         self.lists[list_id] = {"name": title_str, "reminders": {}}
         return self._to_char_ptr({"id": list_id})
 
@@ -64,7 +65,7 @@ class MockSwiftAPI:
             "title": title,
             "notes": data.get("notes", ""),
             "due_date": data.get("dueDate"),
-            "completed": False
+            "completed": False,
         }
         return self._to_char_ptr({"id": reminder_id})
 
@@ -79,16 +80,18 @@ class MockSwiftAPI:
         for list_id, list_data in self.lists.items():  # Ensure correct scoping for list_id
             for reminder_id, reminder in list_data["reminders"].items():
                 if query_str.lower() in reminder["title"].lower():
-                    results.append({
-                        "id": reminder_id,
-                        "title": reminder["title"],
-                        "notes": reminder["notes"],
-                        "due_date": reminder["due_date"],
-                        "completed": reminder["completed"],
-                        "priority": 5,  # Default priority value
-                        "listId": list_id
-                    })
-        
+                    results.append(
+                        {
+                            "id": reminder_id,
+                            "title": reminder["title"],
+                            "notes": reminder["notes"],
+                            "due_date": reminder["due_date"],
+                            "completed": reminder["completed"],
+                            "priority": 5,  # Default priority value
+                            "listId": list_id,
+                        }
+                    )
+
         return self._to_char_ptr(results)
 
     # Add missing functions to match type signatures
@@ -108,11 +111,13 @@ class MockSwiftAPI:
         # No-op implementation since Python handles memory management
         pass
 
+
 class MockRemindersTestHelper:
     """
     A test utility to mock the actual `apple_reminders._lib` functionality using the MockSwiftAPI.
     This helper ensures that all Swift API calls are rerouted to our mock implementation.
     """
+
     def __init__(self) -> None:
         self.mock_api = mock.MockSwiftAPI()
 
@@ -126,6 +131,7 @@ class MockRemindersTestHelper:
         """Stop patching the _lib module."""
         self.patcher.stop()
 
+
 # Only provide the test utility if running in a test environment
-if 'pytest' in sys.modules or 'unittest' in sys.modules:
+if "pytest" in sys.modules or "unittest" in sys.modules:
     MockRemindersTestHelper
