@@ -3,7 +3,7 @@ name = "apple-reminders"
 version = "0.1.0"
 description = "A Python library for interacting with Apple's Reminders app"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" },
+    { name = "Luiz Ribeiro", email = "luizribeiro@gmail.com" },
 ]
 dependencies = [
     "click>=8.0.0",
