@@ -5,16 +5,23 @@
   # Name your project
   name = "apple-reminders";
 
-  packages = [
-    pkgs.swift
-    pkgs.python311
-    pkgs.uv
+  env.PYTHONPATH = "./src";
+
+  packages = with pkgs; [
+    swift
+    python311
+    uv
+    python311Packages.pip
+    python311Packages.pytest
+    python311Packages.pytest-cov
+    python311Packages.pytest-mock
   ];
 
-  languages = {
-    python.enable = true;
-    python.package = pkgs.python311;
-    python.venv.enable = true;
+  # Python configuration
+  languages.python = {
+    enable = true;
+    package = pkgs.python311;
+    venv.enable = true;
   };
 
   enterShell = ''
@@ -27,7 +34,13 @@
     fi
     
     source .venv/bin/activate
+
+    # Install dependencies with uv
+    echo "📦 Installing dependencies..."
+    uv pip install -e ".[dev]"
     
     echo "✨ Development environment ready!"
   '';
+
+  processes.test.exec = "pytest";
 }
