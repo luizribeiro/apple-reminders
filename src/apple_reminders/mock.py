@@ -1,7 +1,7 @@
 import ctypes
 import json
 import sys
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Tuple, Optional, cast
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -17,11 +17,11 @@ class MockSwiftAPI:
         self.reader_pointer = ctypes.c_void_p(id(self))
         MockSwiftAPI.active_pointers[id(self.reader_pointer)] = self.reader_pointer
 
-    # Helper to create a c_void_p result pointer
-    def _to_result_ptr(self, data: Any) -> ctypes.c_void_p:
-        json_data = json.dumps(data)  # Convert data to JSON string
-        buffer = ctypes.create_string_buffer(json_data.encode("utf-8"))  # Create string buffer
-        return ctypes.cast(buffer, ctypes.c_void_p)  # Return as c_void_p
+    # Helper to create a char pointer result
+    def _to_char_ptr(self, data: Any) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
+        json_data = json.dumps(data).encode("utf-8")  # Convert data to JSON bytes
+        buffer = ctypes.create_string_buffer(json_data)  # Create string buffer
+        return ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
 
     # Mock CreateRemindersReader Functionality
     def CreateRemindersReader(self) -> ctypes.c_void_p:
@@ -33,7 +33,7 @@ class MockSwiftAPI:
             del MockSwiftAPI.active_pointers[id(pointer)]  # Remove from active pointers registry
 
     # Mock CreateList Functionality
-    def CreateList(self, _: ctypes.c_void_p, title: ctypes.c_char_p) -> ctypes.c_void_p:
+    def CreateList(self, _: ctypes.c_void_p, title: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
         title_buffer = ctypes.cast(title, ctypes.c_char_p).value
         if title_buffer is None:
             raise ValueError("Invalid title - cannot decode None")
@@ -43,10 +43,10 @@ class MockSwiftAPI:
             raise ValueError(f"List with name '{title_str}' already exists.")
         
         self.lists[list_id] = {"name": title_str, "reminders": {}}
-        return self._to_result_ptr({"id": list_id})
+        return self._to_char_ptr({"id": list_id})
 
     # Mock AddReminder Functionality
-    def CreateReminder(self, _: ctypes.c_void_p, input_data: ctypes.c_char_p) -> ctypes.c_void_p:
+    def CreateReminder(self, _: ctypes.c_void_p, input_data: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
         input_buffer = ctypes.cast(input_data, ctypes.c_char_p).value
         if input_buffer is None:
             raise ValueError("Invalid input data - cannot decode None")
@@ -66,10 +66,10 @@ class MockSwiftAPI:
             "due_date": data.get("dueDate"),
             "completed": False
         }
-        return self._to_result_ptr({"id": reminder_id})
+        return self._to_char_ptr({"id": reminder_id})
 
     # Mock SearchReminders Functionality
-    def SearchReminders(self, _: ctypes.c_void_p, query: ctypes.c_char_p) -> ctypes.c_void_p:
+    def SearchReminders(self, _: ctypes.c_void_p, query: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
         query_buffer = ctypes.cast(query, ctypes.c_char_p).value
         if query_buffer is None:
             raise ValueError("Query cannot be None")
@@ -89,7 +89,24 @@ class MockSwiftAPI:
                         "listId": list_id
                     })
         
-        return self._to_result_ptr(results)
+        return self._to_char_ptr(results)
+
+    # Add missing functions to match type signatures
+    def GetReminders(self, _: ctypes.c_void_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
+        # Stub implementation that returns an empty result
+        return self._to_char_ptr([])
+
+    def GetReminderLists(self, _: ctypes.c_void_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
+        # Stub implementation that returns an empty result
+        return self._to_char_ptr([])
+
+    def GetRemindersInList(self, _: ctypes.c_void_p, list_id: ctypes.c_char_p) -> "ctypes.POINTER(ctypes.c_char)":  # type: ignore
+        # Stub implementation that returns an empty result
+        return self._to_char_ptr([])
+
+    def FreeString(self, ptr: "ctypes.POINTER(ctypes.c_char)") -> None:  # type: ignore
+        # No-op implementation since Python handles memory management
+        pass
 
 class MockRemindersTestHelper:
     """
