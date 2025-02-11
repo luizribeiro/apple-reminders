@@ -21,6 +21,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.1.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
 ]
@@ -32,7 +33,8 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --tb=short --cov=apple_reminders --cov-report=term-missing"
+addopts = "-v --tb=short --cov=apple_reminders --cov-report=term-missing --timeout=3"
+timeout = 3
 
 [tool.ruff]
 select = [
