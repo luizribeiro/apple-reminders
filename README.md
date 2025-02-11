@@ -6,7 +6,8 @@ A Python library for interacting with Apple's Reminders app on macOS, providing 
 
 ### Library Features
 - Full access to Apple's Reminders through EventKit
-- Read reminders and lists
+- Create and manage reminder lists
+- Create, read, and manage reminders
 - Filter by due date, completion status
 - Search functionality
 - Rich metadata support (priorities, notes, due dates)
@@ -19,6 +20,8 @@ rem list              # List all reminders
 rem list --overdue    # Show overdue reminders
 rem lists             # Show all reminder lists
 rem stats             # Show reminder statistics
+rem add               # Add a new reminder
+rem create-list       # Create a new reminder list
 ```
 
 ## Installation
@@ -52,6 +55,7 @@ uv pip install -e .
 
 ```python
 from apple_reminders import RemindersAPI
+from datetime import datetime, timezone
 
 # Initialize the API
 api = RemindersAPI()
@@ -65,6 +69,21 @@ for reminder in reminders:
 lists = api.get_lists()
 for list_ in lists:
     print(f"{list_.title}: {list_.color}")
+
+# Create a new list
+list_id = api.create_list(
+    title="Shopping List",
+    color="#FF0000"  # Optional color in hex format
+)
+
+# Create a new reminder
+reminder_id = api.create_reminder(
+    title="Buy milk",
+    list_id=list_id,
+    notes="2% milk",
+    due_date=datetime.now(timezone.utc),
+    priority=1  # high priority
+)
 
 # Get today's reminders
 today = api.get_reminders_due_today()
@@ -87,6 +106,10 @@ rem list              # List all reminders
 rem lists             # Show all reminder lists
 rem stats             # Show statistics
 
+# Creating reminders and lists
+rem add "Buy milk" --list "Shopping" --due "2024-03-20 15:00" --priority high --notes "2% milk"
+rem create-list "Shopping" --color "#FF0000"
+
 # Filtering options
 rem list --overdue    # Show overdue reminders
 rem list --today      # Show today's reminders
@@ -96,6 +119,7 @@ rem list --list "Shopping"    # Show reminders from a specific list
 # Output formats
 rem list --format json    # Output as JSON
 rem today --format json   # JSON output for today's reminders
+rem add --format json    # JSON output for creation result
 ```
 
 ## Reminder Objects
@@ -113,6 +137,15 @@ class Reminder:
     list_id: str           # Parent list ID
     creation_date: datetime    # When created
     modification_date: datetime  # Last modified
+```
+
+## List Objects
+
+```python
+class ReminderList:
+    id: str                  # Unique identifier
+    title: str              # List title
+    color: Optional[str]    # List color in hex format (e.g., "#FF0000")
 ```
 
 ## Permissions
@@ -138,3 +171,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Built on Apple's EventKit framework
 - Uses Click for CLI interface
 - Uses Rich for beautiful terminal output
+- Initial CI setup and code improvements by Goose 🦢

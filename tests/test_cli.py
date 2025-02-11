@@ -35,16 +35,20 @@ class MockReminderList:
 def mock_api() -> Generator[Mock, None, None]:
     """Mock RemindersAPI for testing."""
     with patch('apple_reminders.rem.RemindersAPI') as mock:
-        api_instance = mock.return_value
+        # Create a proper instance mock that will be returned by the class mock
+        instance = Mock()
+        mock.return_value = instance
         
         # Setup default return values
-        api_instance.get_all_reminders.return_value = []
-        api_instance.get_lists.return_value = []
-        api_instance.get_reminders_due_today.return_value = []
-        api_instance.get_overdue_reminders.return_value = []
-        api_instance.get_reminders_in_list.return_value = []
+        instance.get_all_reminders.return_value = []
+        instance.get_lists.return_value = []
+        instance.get_reminders_due_today.return_value = []
+        instance.get_overdue_reminders.return_value = []
+        instance.get_reminders_in_list.return_value = []
+        instance.create_reminder.return_value = "new-reminder-id"
+        instance.create_list.return_value = "new-list-id"
         
-        yield api_instance
+        yield instance  # Yield the instance, not the class mock
 
 @pytest.fixture
 def cli_runner() -> CliRunner:
@@ -140,3 +144,163 @@ def test_stats_command_json_output(cli_runner: CliRunner, mock_api: Mock) -> Non
     assert 'completed' in data
     assert 'due_today' in data
     assert 'overdue' in data
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_add_command(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test adding a new reminder."""
+    # Mock the create_reminder method
+    mock_api.return_value.create_reminder.return_value = "new-reminder-id"
+    
+    result = cli_runner.invoke(cli, [
+        'add',
+        'Test Reminder',
+        '--list', 'list1',
+        '--notes', 'Test Notes',
+        '--due', '2023-12-31 12:00',
+        '--priority', 'high'
+    ])
+    
+    print(f"Output: {result.output}")
+    print(f"Exit Code: {result.exit_code}")
+    assert result.exit_code == 0
+    assert "Created reminder: Test Reminder" in result.output
+    
+    # Verify API was called correctly
+    mock_api.return_value.create_reminder.assert_called_once()
+    call_args = mock_api.return_value.create_reminder.call_args[1]
+    assert call_args["title"] == "Test Reminder"
+    assert call_args["list_id"] == "list1"
+    assert call_args["notes"] == "Test Notes"
+    assert call_args["priority"] == 1  # high priority
+    assert isinstance(call_args["due_date"], datetime)
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_add_command_minimal(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test adding a reminder with minimal options."""
+    mock_api.return_value.create_reminder.return_value = "new-reminder-id"
+    
+    result = cli_runner.invoke(cli, [
+        'add',
+        'Test Reminder',
+        '--list', 'list1'
+    ])
+    
+    assert result.exit_code == 0
+    assert "Created reminder: Test Reminder" in result.output
+    
+    # Verify API was called with minimal args
+    call_args = mock_api.return_value.create_reminder.call_args[1]
+    assert call_args["title"] == "Test Reminder"
+    assert call_args["list_id"] == "list1"
+    assert call_args["notes"] is None
+    assert call_args["priority"] is None
+    assert call_args["due_date"] is None
+
+def test_add_command_json_output(cli_runner: CliRunner, mock_api: Mock) -> None:
+    """Test adding a reminder with JSON output."""
+    mock_api.return_value.create_reminder.return_value = "new-reminder-id"
+    
+    result = cli_runner.invoke(cli, [
+        'add',
+        'Test Reminder',
+        '--list', 'list1',
+        '--format', 'json'
+    ])
+    
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["success"] is True
+    assert data["id"] == "new-reminder-id"
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_add_command_error(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test error handling when adding a reminder."""
+    mock_api.return_value.create_reminder.side_effect = RuntimeError("Failed to create reminder")
+    
+    result = cli_runner.invoke(cli, [
+        'add',
+        'Test Reminder',
+        '--list', 'list1'
+    ])
+    
+    assert result.exit_code == 0  # We don't exit with error to stay consistent
+    assert "Error: Failed to create reminder" in result.output
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_create_list_command(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test creating a new list."""
+    mock_api.return_value.create_list.return_value = "new-list-id"
+    
+    result = cli_runner.invoke(cli, [
+        'create-list',
+        'Test List',
+        '--color', '#FF0000'
+    ])
+    
+    assert result.exit_code == 0
+    assert "Created list: Test List" in result.output
+    
+    # Verify API was called correctly
+    mock_api.return_value.create_list.assert_called_once_with(
+        title="Test List",
+        color="#FF0000"
+    )
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_create_list_minimal(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test creating a list with minimal options."""
+    mock_api.return_value.create_list.return_value = "new-list-id"
+    
+    result = cli_runner.invoke(cli, [
+        'create-list',
+        'Test List'
+    ])
+    
+    assert result.exit_code == 0
+    assert "Created list: Test List" in result.output
+    
+    # Verify API was called with minimal args
+    mock_api.return_value.create_list.assert_called_once_with(
+        title="Test List",
+        color=None
+    )
+
+def test_create_list_json_output(cli_runner: CliRunner, mock_api: Mock) -> None:
+    """Test creating a list with JSON output."""
+    mock_api.return_value.create_list.return_value = "new-list-id"
+    
+    result = cli_runner.invoke(cli, [
+        'create-list',
+        'Test List',
+        '--format', 'json'
+    ])
+    
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["success"] is True
+    assert data["id"] == "new-list-id"
+
+from unittest.mock import Mock, patch
+
+@patch('apple_reminders.rem.RemindersAPI')
+def test_create_list_error(mock_api: Mock, cli_runner: CliRunner) -> None:
+    """Test error handling when creating a list."""
+    mock_api.return_value.create_list.side_effect = RuntimeError("Failed to create list")
+    
+    result = cli_runner.invoke(cli, [
+        'create-list',
+        'Test List'
+    ])
+    
+    assert result.exit_code == 0  # We don't exit with error to stay consistent
+    assert "Error: Failed to create list" in result.output

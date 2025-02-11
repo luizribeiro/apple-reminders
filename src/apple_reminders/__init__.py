@@ -44,6 +44,12 @@ _lib.GetRemindersInList.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 _lib.SearchReminders.restype = ctypes.POINTER(ctypes.c_char)
 _lib.SearchReminders.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
+_lib.CreateReminder.restype = ctypes.POINTER(ctypes.c_char)
+_lib.CreateReminder.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+
+_lib.CreateList.restype = ctypes.POINTER(ctypes.c_char)
+_lib.CreateList.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+
 _lib.FreeString.restype = None
 _lib.FreeString.argtypes = [ctypes.POINTER(ctypes.c_char)]
 
@@ -127,17 +133,28 @@ class RemindersAPI:
             self._reader = None
 
     def _handle_json_response(self, result_ptr: Any) -> Any:
-        """Handle JSON response from the C library."""
-        try:
-            result_str = ctypes.string_at(result_ptr).decode('utf-8')
-            result = json.loads(result_str)
-            
-            if isinstance(result, dict) and 'error' in result:
+        """Handle JSON response from Swift library.
+        
+        The response can be either:
+        - A dictionary containing data or an error message
+        - A list of items (for get_lists and get_reminders)
+        """
+        result_str = ctypes.string_at(result_ptr).decode('utf-8')
+        result = json.loads(result_str)
+        
+        # If it's a dictionary, check for errors
+        if isinstance(result, dict):
+            if 'error' in result:
                 raise RuntimeError(result['error'])
-            
+            if 'items' in result:
+                return result['items']
             return result
-        finally:
-            _lib.FreeString(result_ptr)
+            
+        # If it's a list, return it directly
+        if isinstance(result, list):
+            return result
+            
+        raise RuntimeError(f"Unexpected JSON response type: {type(result)}")
 
     def get_all_reminders(self) -> List[Reminder]:
         """Get all reminders."""
@@ -182,3 +199,70 @@ class RemindersAPI:
     def get_reminders_by_priority(self, priority: int) -> List[Reminder]:
         """Get all reminders with a specific priority."""
         return [r for r in self.get_all_reminders() if r.priority == priority]
+
+    def create_reminder(self, title: str, list_id: str, notes: Optional[str] = None,
+                       due_date: Optional[datetime] = None, priority: Optional[int] = None) -> str:
+        """Create a new reminder.
+        
+        Args:
+            title: The title of the reminder
+            list_id: The ID of the list to add the reminder to
+            notes: Optional notes for the reminder
+            due_date: Optional due date (must be timezone aware)
+            priority: Optional priority (1=high, 5=medium, 9=low)
+            
+        Returns:
+            The ID of the newly created reminder
+        
+        Raises:
+            RuntimeError: If the reminder creation fails
+        """
+        input_data = {
+            "title": title,
+            "listId": list_id,
+            "notes": notes,
+            "dueDate": due_date.astimezone(timezone.utc).isoformat() if due_date else None,
+            "priority": priority
+        }
+        
+        result = self._handle_json_response(
+            _lib.CreateReminder(self._reader, json.dumps(input_data).encode('utf-8'))
+        )
+        
+        reminder_id = result.get('id')
+        if not isinstance(reminder_id, str):
+            raise RuntimeError("Failed to create reminder: invalid ID type received")
+        if not reminder_id:
+            raise RuntimeError(f"Failed to create reminder, missing id: {result.get('error')}")
+            
+        return reminder_id
+
+    def create_list(self, title: str, color: Optional[str] = None) -> str:
+        """Create a new reminder list.
+        
+        Args:
+            title: The title of the list
+            color: Optional color in hex format (e.g., '#FF0000' for red)
+            
+        Returns:
+            The ID of the newly created list
+            
+        Raises:
+            RuntimeError: If the list creation fails
+        """
+        input_data = {
+            "title": title,
+            "color": color
+        }
+        
+        result = self._handle_json_response(
+            _lib.CreateList(self._reader, json.dumps(input_data).encode('utf-8'))
+        )
+        
+        list_id = result.get('id')
+        if not isinstance(list_id, str):
+            raise RuntimeError("Failed to create list: invalid ID type received")
+        if not list_id:
+            raise RuntimeError(f"Failed to create list, missing id: {result.get('error')}")
+            
+        return list_id

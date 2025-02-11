@@ -8,13 +8,16 @@
   env.PYTHONPATH = "./src";
 
   packages = with pkgs; [
-    swift
+    darwin.apple_sdk.frameworks.AppKit
+    darwin.apple_sdk.frameworks.Foundation
     python311
-    uv
     python311Packages.pip
     python311Packages.pytest
     python311Packages.pytest-cov
     python311Packages.pytest-mock
+    swift
+    swiftpm
+    uv
   ];
 
   # Python configuration
@@ -44,3 +47,4 @@
 
   processes.test.exec = "pytest";
 }
+

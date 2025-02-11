@@ -205,6 +205,68 @@ def cli() -> None:
 
 @cli.command()
 @common_options
+@click.argument('title')
+@click.option('--list', 'list_id', required=True, help='List ID to create the reminder in')
+@click.option('--notes', help='Optional notes for the reminder')
+@click.option('--due', 'due_date', type=click.DateTime(formats=['%Y-%m-%d %H:%M', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S']), help='Due date (format: YYYY-MM-DD HH:MM)')
+@click.option('--priority', type=click.Choice(['high', 'medium', 'low']), help='Priority level')
+def add(output_format: OutputFormat, title: str, list_id: str, notes: Optional[str] = None,
+        due_date: Optional[datetime] = None, priority: Optional[str] = None) -> None:
+    """Add a new reminder"""
+    api = RemindersAPI()
+    
+    # Convert priority string to number
+    priority_map = {'high': 1, 'medium': 5, 'low': 9}
+    priority_num = priority_map.get(priority) if priority else None
+    
+    # Make due date timezone aware if provided
+    if due_date and due_date.tzinfo is None:
+        due_date = due_date.replace(tzinfo=timezone.utc)
+    
+    try:
+        reminder_id = api.create_reminder(
+            title=title,
+            list_id=list_id,
+            notes=notes,
+            due_date=due_date,
+            priority=priority_num
+        )
+        
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": True, "id": reminder_id}))
+        else:
+            console.print(f"\n✓ Created reminder: {title}\n")
+            
+    except RuntimeError as e:
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+
+@cli.command('create-list')
+@common_options
+@click.argument('title')
+@click.option('--color', help='Color in hex format (e.g., #FF0000 for red)')
+def create_list(output_format: OutputFormat, title: str, color: Optional[str] = None) -> None:
+    """Create a new reminder list"""
+    api = RemindersAPI()
+    
+    try:
+        list_id = api.create_list(title=title, color=color)
+        
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": True, "id": list_id}))
+        else:
+            console.print(f"\n✓ Created list: {title}\n")
+            
+    except RuntimeError as e:
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+
+@cli.command()
+@common_options
 @click.option("--hide-overdue", is_flag=True, help="Hide overdue tasks")
 def today(output_format: OutputFormat, hide_overdue: bool) -> None:
     """Show today's and overdue reminders"""
