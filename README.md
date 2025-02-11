@@ -54,30 +54,30 @@ uv pip install -e .
 ## Library Usage
 
 ```python
-from apple_reminders import RemindersAPI
+from apple_reminders import Client
 from datetime import datetime, timezone
 
-# Initialize the API
-api = RemindersAPI()
+# Initialize the client
+client = Client()
 
 # Get all reminders
-reminders = api.get_all_reminders()
+reminders = client.get_all_reminders()
 for reminder in reminders:
     print(f"{reminder.title} - Due: {reminder.due_date}")
 
 # Get reminder lists
-lists = api.get_lists()
+lists = client.get_lists()
 for list_ in lists:
     print(f"{list_.title}: {list_.color}")
 
 # Create a new list
-list_id = api.create_list(
+list_id = client.create_list(
     title="Shopping List",
     color="#FF0000"  # Optional color in hex format
 )
 
 # Create a new reminder
-reminder_id = api.create_reminder(
+reminder_id = client.create_reminder(
     title="Buy milk",
     list_id=list_id,
     notes="2% milk",
@@ -86,13 +86,13 @@ reminder_id = api.create_reminder(
 )
 
 # Get today's reminders
-today = api.get_reminders_due_today()
+today = client.get_reminders_due_today()
 
 # Get overdue reminders
-overdue = api.get_overdue_reminders()
+overdue = client.get_overdue_reminders()
 
 # Search reminders
-results = api.search_reminders("shopping")
+results = client.search_reminders("shopping")
 ```
 
 ## Command-line Usage

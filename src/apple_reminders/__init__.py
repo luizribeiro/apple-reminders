@@ -117,11 +117,11 @@ class ReminderList:
         return f"{self.title} ({self.id})"
 
 
-class RemindersAPI:
+class Client:
     """Main interface for interacting with Apple Reminders."""
 
     def __init__(self) -> None:
-        """Initialize the RemindersAPI."""
+        """Initialize the client."""
         self._reader = _lib.CreateRemindersReader()
         if not self._reader:
             raise RuntimeError("Failed to initialize RemindersReader")

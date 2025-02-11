@@ -12,7 +12,7 @@ from rich import box
 from rich.text import Text
 from rich.style import Style
 
-from . import RemindersAPI, ReminderList, Reminder
+from . import Client, ReminderList, Reminder
 
 # Initialize rich console
 console = Console()
@@ -213,7 +213,7 @@ def cli() -> None:
 def add(output_format: OutputFormat, title: str, list_id: str, notes: Optional[str] = None,
         due_date: Optional[datetime] = None, priority: Optional[str] = None) -> None:
     """Add a new reminder"""
-    api = RemindersAPI()
+    client = Client()
     
     # Convert priority string to number
     priority_map = {'high': 1, 'medium': 5, 'low': 9}
@@ -224,7 +224,7 @@ def add(output_format: OutputFormat, title: str, list_id: str, notes: Optional[s
         due_date = due_date.replace(tzinfo=timezone.utc)
     
     try:
-        reminder_id = api.create_reminder(
+        reminder_id = client.create_reminder(
             title=title,
             list_id=list_id,
             notes=notes,
@@ -249,10 +249,10 @@ def add(output_format: OutputFormat, title: str, list_id: str, notes: Optional[s
 @click.option('--color', help='Color in hex format (e.g., #FF0000 for red)')
 def create_list(output_format: OutputFormat, title: str, color: Optional[str] = None) -> None:
     """Create a new reminder list"""
-    api = RemindersAPI()
+    client = Client()
     
     try:
-        list_id = api.create_list(title=title, color=color)
+        list_id = client.create_list(title=title, color=color)
         
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": True, "id": list_id}))
@@ -270,13 +270,13 @@ def create_list(output_format: OutputFormat, title: str, color: Optional[str] = 
 @click.option("--hide-overdue", is_flag=True, help="Hide overdue tasks")
 def today(output_format: OutputFormat, hide_overdue: bool) -> None:
     """Show today's and overdue reminders"""
-    api = RemindersAPI()
+    client = Client()
     now = datetime.now(timezone.utc)
     
     # Get both today's and overdue reminders
-    today_reminders = api.get_reminders_due_today()
+    today_reminders = client.get_reminders_due_today()
     overdue_reminders = [] if hide_overdue else [
-        r for r in api.get_overdue_reminders()
+        r for r in client.get_overdue_reminders()
         if r.due_date and r.due_date.date() != now.date()  # Exclude today's reminders to avoid duplicates
     ]
 
@@ -302,24 +302,24 @@ def today(output_format: OutputFormat, hide_overdue: bool) -> None:
 def list(output_format: OutputFormat, list_id: Optional[str], today: bool, overdue: bool, 
          search: Optional[str], show_all: bool) -> None:
     """List reminders"""
-    api = RemindersAPI()
+    client = Client()
     
     if today:
         title = "📅 Today"
-        reminders = api.get_reminders_due_today()
+        reminders = client.get_reminders_due_today()
     elif overdue:
         title = "⏰ Overdue"
-        reminders = api.get_overdue_reminders()
+        reminders = client.get_overdue_reminders()
     elif search:
         title = f"🔍 '{search}'"
-        reminders = api.search_reminders(search)
+        reminders = client.search_reminders(search)
     elif list_id:
-        lists = {l.id: l.title for l in api.get_lists()}
+        lists = {l.id: l.title for l in client.get_lists()}
         title = f"📋 {lists.get(list_id, 'Unknown List')}"
-        reminders = api.get_reminders_in_list(list_id)
+        reminders = client.get_reminders_in_list(list_id)
     else:
         title = "📋 All"
-        reminders = api.get_all_reminders()
+        reminders = client.get_all_reminders()
     
     if not show_all:
         reminders = [r for r in reminders if not r.completed]
@@ -336,13 +336,13 @@ def list(output_format: OutputFormat, list_id: Optional[str], today: bool, overd
 @common_options
 def lists(output_format: OutputFormat) -> None:
     """Show reminder lists"""
-    api = RemindersAPI()
-    reminder_lists = api.get_lists()
+    client = Client()
+    reminder_lists = client.get_lists()
     
     # Get counts for each list
     reminder_counts: Dict[str, int] = {}
     for l in reminder_lists:
-        reminders = api.get_reminders_in_list(l.id)
+        reminders = client.get_reminders_in_list(l.id)
         reminder_counts[l.id] = len([r for r in reminders if not r.completed])
     
     OutputFormatter.output_lists(reminder_lists, reminder_counts, fmt=output_format)
@@ -351,8 +351,8 @@ def lists(output_format: OutputFormat) -> None:
 @common_options
 def stats(output_format: OutputFormat) -> None:
     """Show statistics"""
-    api = RemindersAPI()
-    reminders = api.get_all_reminders()
+    client = Client()
+    reminders = client.get_all_reminders()
     
     now = datetime.now(timezone.utc)
     completed = len([r for r in reminders if r.completed])
