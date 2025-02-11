@@ -1,0 +1,318 @@
+"""CLI interface for Apple Reminders."""
+from datetime import datetime, timezone
+from typing import List, Optional, Any, Callable
+import json
+from dataclasses import asdict
+import enum
+
+import click
+from rich.console import Console
+from rich.table import Table
+from rich import box
+from rich.text import Text
+from rich.style import Style
+
+from . import RemindersAPI, ReminderList, Reminder
+
+# Initialize rich console
+console = Console()
+
+class OutputFormat(str, enum.Enum):
+    """Supported output formats."""
+    PRETTY = "pretty"  # Default rich text output
+    JSON = "json"      # JSON output
+
+def style_priority(priority: int) -> str:
+    """Return styled priority indicator."""
+    if priority == 1:
+        return "[red]![/red]"  # High priority
+    elif priority == 5:
+        return "[yellow]![/yellow]"  # Medium priority
+    elif priority == 9:
+        return "[blue]![/blue]"  # Low priority
+    return " "  # No priority
+
+def style_date(date: Optional[datetime], show_date: bool = False) -> str:
+    """Return styled date string."""
+    if not date:
+        return ""
+    
+    now = datetime.now(timezone.utc)
+    if show_date:
+        date_str = date.strftime("%Y-%m-%d %H:%M")
+    else:
+        date_str = date.strftime("%H:%M")
+    
+    if date.date() == now.date():
+        return f"[cyan]{date_str}[/cyan]"
+    elif date < now:
+        return f"[red]{date_str}[/red]"
+    else:
+        return f"[yellow]{date_str}[/yellow]"
+
+def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Convert hex color to RGB."""
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def format_color_block(hex_color: Optional[str]) -> str:
+    """Format a color as a visible block in the terminal."""
+    if not hex_color:
+        return "⬜️"
+    r, g, b = hex_to_rgb(hex_color)
+    return f"[rgb({r},{g},{b})]█████[/]"
+
+def format_status(completed: bool) -> str:
+    """Format the status indicator."""
+    return "[dim]✓[/dim]" if completed else "○"
+
+class OutputFormatter:
+    """Handles consistent output formatting across commands."""
+    
+    @staticmethod
+    def format_reminder_row(reminder: Reminder, show_notes: bool = True, show_date: bool = False) -> List[str]:
+        """Format a reminder for table display."""
+        # Basic styling
+        title_style = "dim" if reminder.completed else None
+        title = Text(reminder.title, style=title_style)
+        
+        # Status and priority
+        status = format_status(reminder.completed)
+        priority = style_priority(reminder.priority)
+        
+        # Due date
+        due = style_date(reminder.due_date, show_date=show_date)
+        
+        # Build columns
+        columns = [status, priority, title]
+        if due:
+            columns.append(due)
+        
+        if show_notes and reminder.notes:
+            notes = Text(
+                reminder.notes[:50] + "..." if len(reminder.notes) > 50 else reminder.notes,
+                style="dim"
+            )
+            columns.append(notes)
+        
+        return columns
+
+    @staticmethod
+    def format_reminders_as_table(reminders: List[Reminder], *, show_notes: bool = True, 
+                                show_date: bool = False, title: Optional[str] = None) -> Table:
+        """Create a formatted table of reminders."""
+        table = Table(
+            box=None,
+            show_header=False,
+            pad_edge=False,
+            padding=(0, 1),
+            collapse_padding=True
+        )
+        
+        for reminder in sorted(reminders, key=lambda r: (r.completed, r.due_date or datetime.max.replace(tzinfo=timezone.utc))):
+            table.add_row(*OutputFormatter.format_reminder_row(reminder, show_notes=show_notes, show_date=show_date))
+        
+        return table
+
+    @staticmethod
+    def format_lists_as_table(lists: List[ReminderList], reminder_counts: dict[str, int]) -> Table:
+        """Create a formatted table of reminder lists."""
+        table = Table(box=None, show_header=False, pad_edge=False, padding=(0, 1))
+        
+        for l in lists:
+            active_count = reminder_counts.get(l.id, 0)
+            color_block = format_color_block(l.color)
+            
+            table.add_row(
+                color_block,
+                l.title,
+                Text(f"{active_count} active", style="dim")
+            )
+        
+        return table
+
+    @staticmethod
+    def output_reminders(reminders: List[Reminder], fmt: OutputFormat = OutputFormat.PRETTY, 
+                        title: Optional[str] = None, show_notes: bool = True, show_date: bool = False):
+        """Output reminders in the specified format."""
+        if fmt == OutputFormat.JSON:
+            click.echo(json.dumps([asdict(r) for r in reminders], default=str))
+            return
+
+        if not reminders:
+            message = title or "No reminders"
+            console.print(f"\n{message}\n")
+            return
+
+        table = OutputFormatter.format_reminders_as_table(
+            reminders, show_notes=show_notes, show_date=show_date
+        )
+
+        # Add a subtle legend if there are prioritized items
+        has_priorities = any(r.priority in (1, 5, 9) for r in reminders)
+        if has_priorities:
+            legend = [
+                "[red]![/red] high",
+                "[yellow]![/yellow] medium",
+                "[blue]![/blue] low"
+            ]
+            legend_text = Text("  ".join(legend), style="dim")
+
+        console.print()
+        if title:
+            console.print(f"{title} ({len(reminders)})")
+        console.print(table)
+        if has_priorities:
+            console.print(legend_text)
+        console.print()
+
+    @staticmethod
+    def output_lists(lists: List[ReminderList], reminder_counts: dict[str, int], 
+                    fmt: OutputFormat = OutputFormat.PRETTY):
+        """Output lists in the specified format."""
+        if fmt == OutputFormat.JSON:
+            output = [
+                {**asdict(l), "active_reminders": reminder_counts.get(l.id, 0)}
+                for l in lists
+            ]
+            click.echo(json.dumps(output, default=str))
+            return
+
+        if not lists:
+            console.print("\nNo reminder lists found\n")
+            return
+
+        table = OutputFormatter.format_lists_as_table(lists, reminder_counts)
+        console.print("\n📋 Lists")
+        console.print(table)
+        console.print()
+
+def common_options(f: Callable) -> Callable:
+    """Common options for all commands."""
+    f = click.option('--format', 'output_format',
+                    type=click.Choice([f.value for f in OutputFormat]),
+                    default=OutputFormat.PRETTY,
+                    help="Output format")(f)
+    return f
+
+@click.group()
+@click.version_option(version="1.0.0")
+def cli():
+    """Reminders CLI"""
+    pass
+
+@cli.command()
+@common_options
+@click.option("--hide-overdue", is_flag=True, help="Hide overdue tasks")
+def today(output_format: OutputFormat, hide_overdue: bool):
+    """Show today's and overdue reminders"""
+    api = RemindersAPI()
+    now = datetime.now(timezone.utc)
+    
+    # Get both today's and overdue reminders
+    today_reminders = api.get_reminders_due_today()
+    overdue_reminders = [] if hide_overdue else [
+        r for r in api.get_overdue_reminders()
+        if r.due_date.date() != now.date()  # Exclude today's reminders to avoid duplicates
+    ]
+
+    # Combine and sort all reminders
+    all_reminders = overdue_reminders + today_reminders
+    
+    if output_format == OutputFormat.JSON:
+        OutputFormatter.output_reminders(all_reminders, fmt=output_format)
+    else:
+        OutputFormatter.output_reminders(
+            all_reminders,
+            show_notes=False,
+            show_date=True  # Show full date for overdue tasks
+        )
+
+@cli.command()
+@common_options
+@click.option("--list", "list_id", help="Show reminders from a specific list")
+@click.option("--today", is_flag=True, help="Show reminders due today")
+@click.option("--overdue", is_flag=True, help="Show overdue reminders")
+@click.option("--search", help="Search reminders by text")
+@click.option("--all", "show_all", is_flag=True, help="Show all reminders including completed")
+def list(output_format: OutputFormat, list_id, today, overdue, search, show_all):
+    """List reminders"""
+    api = RemindersAPI()
+    
+    if today:
+        title = "📅 Today"
+        reminders = api.get_reminders_due_today()
+    elif overdue:
+        title = "⏰ Overdue"
+        reminders = api.get_overdue_reminders()
+    elif search:
+        title = f"🔍 '{search}'"
+        reminders = api.search_reminders(search)
+    elif list_id:
+        lists = {l.id: l.title for l in api.get_lists()}
+        title = f"📋 {lists.get(list_id, 'Unknown List')}"
+        reminders = api.get_reminders_in_list(list_id)
+    else:
+        title = "📋 All"
+        reminders = api.get_all_reminders()
+    
+    if not show_all:
+        reminders = [r for r in reminders if not r.completed]
+    
+    OutputFormatter.output_reminders(
+        reminders,
+        fmt=output_format,
+        title=title,
+        show_notes=True,
+        show_date=True
+    )
+
+@cli.command()
+@common_options
+def lists(output_format: OutputFormat):
+    """Show reminder lists"""
+    api = RemindersAPI()
+    reminder_lists = api.get_lists()
+    
+    # Get counts for each list
+    reminder_counts = {}
+    for l in reminder_lists:
+        reminders = api.get_reminders_in_list(l.id)
+        reminder_counts[l.id] = len([r for r in reminders if not r.completed])
+    
+    OutputFormatter.output_lists(reminder_lists, reminder_counts, fmt=output_format)
+
+@cli.command()
+@common_options
+def stats(output_format: OutputFormat):
+    """Show statistics"""
+    api = RemindersAPI()
+    reminders = api.get_all_reminders()
+    
+    now = datetime.now(timezone.utc)
+    completed = len([r for r in reminders if r.completed])
+    active = len(reminders) - completed
+    overdue = len([r for r in reminders if not r.completed and r.due_date and r.due_date < now])
+    due_today = len([r for r in reminders if not r.completed and r.due_date and r.due_date.date() == now.date()])
+    
+    stats = {
+        "active": active,
+        "completed": completed,
+        "due_today": due_today,
+        "overdue": overdue,
+        "total": len(reminders)
+    }
+    
+    if output_format == OutputFormat.JSON:
+        click.echo(json.dumps(stats))
+    else:
+        formatted_stats = [
+            f"[cyan]Active: {active}[/cyan]",
+            f"[green]Done: {completed}[/green]",
+            f"[yellow]Due Today: {due_today}[/yellow]",
+            f"[red]Overdue: {overdue}[/red]",
+        ]
+        console.print("\n" + " • ".join(formatted_stats) + "\n")
+
+if __name__ == "__main__":
+    cli()
