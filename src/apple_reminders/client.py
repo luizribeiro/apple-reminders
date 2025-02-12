@@ -93,6 +93,22 @@ class Client:
         """Get all reminders with a specific priority."""
         return [r for r in self.get_all_reminders() if r.priority == priority]
 
+    def get_reminder(self, reminder_id: str) -> Reminder:
+        """Get a specific reminder by ID."""
+        # First try native implementation if available
+        try:
+            result = self._handle_json_response(
+                _lib.GetReminder(self._reader, reminder_id.encode("utf-8"))
+            )
+            return Reminder.from_dict(result)
+        except (AttributeError, RuntimeError):
+            # Fallback implementation if native GetReminder not available
+            all_reminders = self.get_all_reminders()
+            for reminder in all_reminders:
+                if reminder.id == reminder_id:
+                    return reminder
+            raise RuntimeError(f"Reminder with ID '{reminder_id}' not found")
+
     def create_reminder(
         self,
         title: str,

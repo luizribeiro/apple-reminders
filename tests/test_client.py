@@ -65,6 +65,34 @@ class TestClient(unittest.TestCase):
             # Cleanup explicitly
             client.cleanup()
 
+    def test_get_reminder(self) -> None:
+        with MockRemindersTestHelper():
+            client = Client()
+            # Create a list and a reminder
+            list_id = client.create_list("Test List")
+            reminder_id = client.create_reminder(
+                title="Test Reminder",
+                list_id=list_id,
+                notes="Some notes",
+                due_date=None,
+                priority=1,
+            )
+
+            # Get the specific reminder
+            reminder = client.get_reminder(reminder_id)
+            self.assertEqual(reminder.id, reminder_id)
+            self.assertEqual(reminder.title, "Test Reminder")
+            self.assertEqual(reminder.notes, "Some notes")
+            self.assertEqual(reminder.priority, 1)
+            self.assertEqual(reminder.list_id, list_id)
+
+            # Try to get a non-existent reminder
+            with self.assertRaises(RuntimeError):
+                client.get_reminder("non-existent-id")
+
+            # Cleanup explicitly
+            client.cleanup()
+
 
 if __name__ == "__main__":
     unittest.main()

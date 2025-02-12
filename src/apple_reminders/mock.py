@@ -169,6 +169,21 @@ class MockSwiftAPI:
 
         return self._to_char_ptr(results)
 
+    def GetReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
+        """Get a specific reminder by ID."""
+        self._verify_reader(reader)
+        
+        reminder_id_str = decode_char_p(reminder_id)
+        if reminder_id_str is None:
+            raise ValueError("Reminder ID is required")
+        
+        # Search through all lists for the reminder
+        for list_reminders in self.reminders.values():
+            if reminder_id_str in list_reminders:
+                return self._to_char_ptr(list_reminders[reminder_id_str].as_dict())
+                
+        raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
+
     def GetReminders(self, reader: ctypes.c_void_p) -> LP_c_char:
         """Get all reminders."""
         self._verify_reader(reader)

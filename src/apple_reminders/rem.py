@@ -496,6 +496,86 @@ def list(
 
 @cli.command()
 @common_options
+@click.argument("reminder_id", type=IDType())
+def show(output_format: OutputFormat, reminder_id: str) -> None:
+    """Show detailed information about a specific reminder"""
+    client = Client()
+    try:
+        reminder = client.get_reminder(reminder_id)
+        lists = {lst.id: lst for lst in client.get_lists()}
+        
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps(asdict(reminder), default=str))
+            return
+            
+        # Format dates nicely
+        created = (
+            reminder.creation_date.strftime("%Y-%m-%d %H:%M")
+            if reminder.creation_date
+            else "unknown"
+        )
+        modified = (
+            reminder.modification_date.strftime("%Y-%m-%d %H:%M")
+            if reminder.modification_date
+            else "unknown"
+        )
+        due = (
+            reminder.due_date.strftime("%Y-%m-%d %H:%M")
+            if reminder.due_date
+            else "not set"
+        )
+        
+        # Get list information
+        list_info = lists.get(reminder.list_id)
+        list_name = list_info.title if list_info else "Unknown List"
+        list_id = shorten_id(reminder.list_id, [lst.id for lst in lists.values()])
+        
+        # Format priority
+        priority_map = {1: "high", 5: "medium", 9: "low"}
+        priority = priority_map.get(reminder.priority, "none")
+        
+        # Create a rich table for the details
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        
+        # Show reminder ID in context of all reminders
+        all_reminders = client.get_all_reminders()
+        short_id = shorten_id(reminder.id, [r.id for r in all_reminders])
+        
+        table.add_row(Text("ID", style="bold"), Text(short_id, style="dim"))
+        table.add_row(Text("Title", style="bold"), reminder.title)
+        table.add_row(Text("Status", style="bold"), 
+                     Text("✓ Completed", style="dim") if reminder.completed else "○ Active")
+        table.add_row(Text("List", style="bold"), 
+                     Text(f"{list_name} {list_id}", style="dim"))
+        table.add_row(Text("Priority", style="bold"), 
+                     Text(priority, style="red" if priority == "high" 
+                          else "yellow" if priority == "medium"
+                          else "blue" if priority == "low"
+                          else "dim"))
+        table.add_row(Text("Due", style="bold"), 
+                     Text(due, style="red" if reminder.due_date and reminder.due_date < datetime.now(timezone.utc)
+                          else "yellow" if reminder.due_date
+                          else "dim"))
+        
+        if reminder.notes:
+            table.add_row(Text("Notes", style="bold"), Text(reminder.notes))
+            
+        table.add_row(Text("Created", style="bold"), Text(created, style="dim"))
+        table.add_row(Text("Modified", style="bold"), Text(modified, style="dim"))
+        
+        console.print("\n")
+        console.print(table)
+        console.print("\n")
+        
+    except RuntimeError as e:
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+
+
+@cli.command()
+@common_options
 def lists(output_format: OutputFormat) -> None:
     """Show reminder lists"""
     client = Client()
