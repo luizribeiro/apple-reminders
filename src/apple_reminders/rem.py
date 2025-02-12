@@ -437,7 +437,7 @@ class IDType(click.ParamType):
 
 @click.group()
 def cli() -> None:
-    """Reminders CLI"""
+    """A command-line tool for Apple Reminders"""
     pass
 
 
