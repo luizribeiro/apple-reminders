@@ -12,17 +12,14 @@ A Python library for interacting with Apple's Reminders app on macOS, providing 
 - Search functionality
 - Rich metadata support (priorities, notes, due dates)
 
-### Command-line Utility
-The library includes `rem`, a command-line tool for quick access to your reminders:
-```bash
-rem today              # Show today's and overdue reminders
-rem list              # List all reminders
-rem list --overdue    # Show overdue reminders
-rem lists             # Show all reminder lists
-rem stats             # Show reminder statistics
-rem add               # Add a new reminder
-rem create-list       # Create a new reminder list
-```
+### Command-line Utility Features
+The library includes `rem`, a command-line tool for quick access to your reminders with:
+- View today's, overdue, and all reminders
+- Create and manage reminder lists and individual reminders
+- Search and filter reminders
+- Show detailed statistics and reminder information
+- Support for both pretty terminal output and JSON format
+- Rich color and formatting support
 
 ## Installation
 
@@ -46,10 +43,9 @@ cd apple-reminders
 2. Setup development environment:
 ```bash
 devenv shell
-python -m venv .venv
-source .venv/bin/activate
-uv pip install -e .
 ```
+
+Note: The development environment is automatically managed through `devenv`, and virtual environments are setup with `uv` and automatically loaded by `devenv`. All commands should be run from within `devenv shell`.
 
 ## Library Usage
 
@@ -105,16 +101,22 @@ rem today              # Show today's and overdue reminders
 rem list              # List all reminders
 rem lists             # Show all reminder lists
 rem stats             # Show statistics
+rem show REMINDER_ID  # Show detailed information about a specific reminder
 
 # Creating reminders and lists
 rem add "Buy milk" --list "Shopping" --due "2024-03-20 15:00" --priority high --notes "2% milk"
 rem create-list "Shopping" --color "#FF0000"
+
+# Managing reminders
+rem done REMINDER_ID      # Mark reminder as completed
+rem undone REMINDER_ID    # Mark reminder as not completed
 
 # Filtering options
 rem list --overdue    # Show overdue reminders
 rem list --today      # Show today's reminders
 rem list --search "shopping"   # Search reminders
 rem list --list "Shopping"    # Show reminders from a specific list
+rem list --all        # Show all reminders including completed
 
 # Output formats
 rem list --format json    # Output as JSON
