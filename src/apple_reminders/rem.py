@@ -149,7 +149,7 @@ class OutputFormatter:
 
     @staticmethod
     def format_reminder_row(
-        reminder: Reminder, all_reminders: List[Reminder], show_notes: bool = True, show_date: bool = False
+        reminder: Reminder, all_reminders: List[Reminder], lists: Dict[str, ReminderList] = None, show_notes: bool = True, show_date: bool = False
     ) -> List[Text]:
         """Format a reminder for table display."""
         # Basic styling
@@ -170,6 +170,13 @@ class OutputFormatter:
         if reminder.due_date:
             columns.append(style_date(reminder.due_date, show_date=show_date))
 
+        # Add list info if available
+        if lists and reminder.list_id in lists:
+            reminder_list = lists[reminder.list_id]
+            list_color = format_color_block(reminder_list.color)
+            list_text = Text("").join([list_color, Text(" "), Text(reminder_list.title, style="dim")])
+            columns.append(list_text)
+
         if show_notes and reminder.notes:
             notes = Text(
                 reminder.notes[:50] + "..." if len(reminder.notes) > 50 else reminder.notes,
@@ -183,6 +190,7 @@ class OutputFormatter:
     def format_reminders_as_table(
         reminders: List[Reminder],
         *,
+        lists: Optional[Dict[str, ReminderList]] = None,
         show_notes: bool = True,
         show_date: bool = False,
         title: Optional[str] = None,
@@ -200,7 +208,7 @@ class OutputFormatter:
         for reminder in sorted_reminders:
             table.add_row(
                 *OutputFormatter.format_reminder_row(
-                    reminder, sorted_reminders, show_notes=show_notes, show_date=show_date
+                    reminder, sorted_reminders, lists=lists, show_notes=show_notes, show_date=show_date
                 )
             )
 
@@ -236,6 +244,7 @@ class OutputFormatter:
         title: Optional[str] = None,
         show_notes: bool = True,
         show_date: bool = False,
+        lists: Optional[Dict[str, ReminderList]] = None,
     ) -> None:
         """Output reminders in the specified format."""
         if fmt == OutputFormat.JSON:
@@ -248,7 +257,7 @@ class OutputFormatter:
             return
 
         table = OutputFormatter.format_reminders_as_table(
-            reminders, show_notes=show_notes, show_date=show_date
+            reminders, lists=lists, show_notes=show_notes, show_date=show_date
         )
 
         # Add a subtle legend if there are prioritized items
@@ -444,11 +453,14 @@ def today(output_format: OutputFormat, hide_overdue: bool) -> None:
     # Combine and sort all reminders
     all_reminders = overdue_reminders + today_reminders
 
+    # Get lists info for colored display
+    lists = {lst.id: lst for lst in client.get_lists()}
+
     if output_format == OutputFormat.JSON:
         OutputFormatter.output_reminders(all_reminders, fmt=output_format)
     else:
         OutputFormatter.output_reminders(
-            all_reminders, show_notes=False, show_date=True  # Show full date for overdue tasks
+            all_reminders, lists=lists, show_notes=False, show_date=True  # Show full date for overdue tasks
         )
 
 
@@ -490,8 +502,11 @@ def list(
     if not show_all:
         reminders = [r for r in reminders if not r.completed]
 
+    # Get lists info for colored display
+    lists = {lst.id: lst for lst in client.get_lists()}
+
     OutputFormatter.output_reminders(
-        reminders, fmt=output_format, title=title, show_notes=True, show_date=True
+        reminders, fmt=output_format, title=title, lists=lists, show_notes=True, show_date=True
     )
 
 
@@ -546,8 +561,10 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
         table.add_row(Text("Title", style="bold"), reminder.title)
         table.add_row(Text("Status", style="bold"), 
                      Text("✓ Completed", style="dim") if reminder.completed else "○ Active")
+        # Format list with color
+        list_color = format_color_block(list_info.color if list_info else None)
         table.add_row(Text("List", style="bold"), 
-                     Text(f"{list_name} {list_id}", style="dim"))
+                     Text("").join([list_color, Text(" "), Text(f"{list_name} {list_id}", style="dim")]))
         table.add_row(Text("Priority", style="bold"), 
                      Text(priority, style="red" if priority == "high" 
                           else "yellow" if priority == "medium"
