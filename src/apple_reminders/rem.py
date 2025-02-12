@@ -27,11 +27,11 @@ def find_minimum_length(ids: List[str]) -> int:
     """
     if not ids:
         return 0
-        
+
     # Convert all IDs to lowercase for comparison
     lower_ids = [id.lower() for id in ids]
     max_len = max(len(id) for id in lower_ids)
-    
+
     # Start with length 4 as minimum for readability
     for length in range(4, max_len + 1):
         # Get prefixes of current length
@@ -39,8 +39,9 @@ def find_minimum_length(ids: List[str]) -> int:
         # If all prefixes are unique, we found our minimum length
         if len(set(prefixes)) == len(prefixes):
             return length
-            
+
     return max_len
+
 
 def shorten_id(uuid: str, all_ids: Optional[List[str]] = None) -> str:
     """
@@ -51,9 +52,10 @@ def shorten_id(uuid: str, all_ids: Optional[List[str]] = None) -> str:
     """
     if all_ids is None:
         return uuid[:8].lower()
-        
+
     min_length = find_minimum_length(all_ids)
     return uuid[:min_length].lower()
+
 
 def expand_id(partial_id: str, all_ids: List[str]) -> str:
     """
@@ -63,24 +65,20 @@ def expand_id(partial_id: str, all_ids: List[str]) -> str:
     """
     if not partial_id:
         raise ValueError("ID cannot be empty")
-    
-    # Convert input to lowercase for matching    
+
+    # Convert input to lowercase for matching
     partial_id = partial_id.lower()
     # Create case-mapping dict to preserve original IDs
     id_map = {id.lower(): id for id in all_ids}
-    
-    matches = [
-        orig_id
-        for lower_id, orig_id in id_map.items()
-        if lower_id.startswith(partial_id)
-    ]
-    
+
+    matches = [orig_id for lower_id, orig_id in id_map.items() if lower_id.startswith(partial_id)]
+
     if len(matches) == 0:
         raise ValueError(f"No ID found starting with '{partial_id}'")
     if len(matches) > 1:
         matches_display = ", ".join(shorten_id(m, all_ids) for m in matches)
         raise ValueError(f"Ambiguous ID '{partial_id}' matches multiple: {matches_display}")
-        
+
     return matches[0]
 
 
@@ -114,7 +112,7 @@ def format_friendly_date(date: Optional[datetime]) -> Optional[Text]:
         if diff.total_seconds() < 0:
             return Text("(due today)", style="red")
         return Text("(due today)", style="yellow")
-    
+
     # For past dates
     if diff.total_seconds() < 0:
         days = abs(diff.days)
@@ -132,7 +130,7 @@ def format_friendly_date(date: Optional[datetime]) -> Optional[Text]:
             return Text(f"(due {months} months ago)", style="red")
         years = days // 365
         return Text(f"(due {years} years ago)", style="red")
-    
+
     # For future dates
     days = diff.days
     hours = diff.seconds // 3600
@@ -143,7 +141,7 @@ def format_friendly_date(date: Optional[datetime]) -> Optional[Text]:
             minutes = diff.seconds // 60
             return Text(f"(due in {minutes} minutes)", style="yellow")
         return Text(f"(due in {hours} hours)", style="yellow")
-    
+
     # Everything else in dim style
     if days == 1:
         return Text("(due tomorrow)", style="dim")
@@ -188,17 +186,17 @@ class OutputFormatter:
 
     @staticmethod
     def format_reminder_row(
-        reminder: Reminder, 
-        all_reminders: List[Reminder], 
+        reminder: Reminder,
+        all_reminders: List[Reminder],
         show_notes: bool = True,
         show_date: bool = False,
-        show_status: bool = True
+        show_status: bool = True,
     ) -> List[Text]:
         """Format a reminder for table display."""
         # Basic styling
         title_style = Style(dim=True) if reminder.completed else None
         title = Text(reminder.title, style=title_style if title_style else "")
-        
+
         # Add friendly due date to title if present
         if reminder.due_date:
             friendly_date = format_friendly_date(reminder.due_date)
@@ -209,15 +207,17 @@ class OutputFormatter:
         # Status (if needed), priority, ID, then title
         all_ids = [r.id for r in all_reminders]
         columns: List[Text] = []
-        
+
         if show_status:
             columns.append(format_status(reminder.completed))
-            
-        columns.extend([
-            style_priority(reminder.priority),
-            Text(shorten_id(reminder.id, all_ids), style="dim"),
-            title
-        ])
+
+        columns.extend(
+            [
+                style_priority(reminder.priority),
+                Text(shorten_id(reminder.id, all_ids), style="dim"),
+                title,
+            ]
+        )
 
         if show_notes and reminder.notes:
             notes = Text(
@@ -252,9 +252,11 @@ class OutputFormatter:
         for reminder in sorted_reminders:
             table.add_row(
                 *OutputFormatter.format_reminder_row(
-                    reminder, sorted_reminders,
-                    show_notes=show_notes, show_date=show_date,
-                    show_status=show_status
+                    reminder,
+                    sorted_reminders,
+                    show_notes=show_notes,
+                    show_date=show_date,
+                    show_status=show_status,
                 )
             )
 
@@ -273,12 +275,12 @@ class OutputFormatter:
             color_block = format_color_block(reminder_list.color)
             # Add shortened ID before the title
             short_id = shorten_id(reminder_list.id, all_ids)
-            
+
             table.add_row(
                 color_block,
-                Text(shorten_id(reminder_list.id, all_ids), style="dim"), 
+                Text(shorten_id(reminder_list.id, all_ids), style="dim"),
                 reminder_list.title,
-                Text(f"{active_count} active", style="dim")
+                Text(f"{active_count} active", style="dim"),
             )
 
         return table
@@ -319,7 +321,7 @@ class OutputFormatter:
             if lists:
                 sorted_list_ids = sorted(
                     reminders_by_list.keys(),
-                    key=lambda lid: lists[lid].title if lid in lists else ""
+                    key=lambda lid: lists[lid].title if lid in lists else "",
                 )
 
                 # Print each list's reminders
@@ -329,20 +331,24 @@ class OutputFormatter:
                     if not first:
                         console.print()  # Add spacing between lists
                     first = False
-                    
+
                     # Format list header with color
                     if list_id in lists:
                         list_info = lists[list_id]
                         list_color = format_color_block(list_info.color)
                         short_id = shorten_id(list_id, [l.id for l in lists.values()])
-                        console.print(Text("").join([
-                            list_color,
-                            Text(" "),
-                            Text(list_info.title),
-                            Text(" "),
-                            Text(short_id, style="dim"),
-                            Text(f" ({len(list_reminders)})", style="dim")
-                        ]))
+                        console.print(
+                            Text("").join(
+                                [
+                                    list_color,
+                                    Text(" "),
+                                    Text(list_info.title),
+                                    Text(" "),
+                                    Text(short_id, style="dim"),
+                                    Text(f" ({len(list_reminders)})", style="dim"),
+                                ]
+                            )
+                        )
                     else:
                         console.print(f"Unknown List ({len(list_reminders)})")
 
@@ -358,7 +364,7 @@ class OutputFormatter:
                     legend = [
                         Text("!", style="red") + Text(" high  "),
                         Text("!", style="yellow") + Text(" medium  "),
-                        Text("!", style="blue") + Text(" low")
+                        Text("!", style="blue") + Text(" low"),
                     ]
                     console.print(Text("").join(legend))
 
@@ -371,7 +377,11 @@ class OutputFormatter:
         """Output lists in the specified format."""
         if fmt == OutputFormat.JSON:
             output = [
-                {**asdict(reminder_list), "active_reminders": reminder_counts.get(reminder_list.id, 0)} for reminder_list in lists
+                {
+                    **asdict(reminder_list),
+                    "active_reminders": reminder_counts.get(reminder_list.id, 0),
+                }
+                for reminder_list in lists
             ]
             click.echo(json.dumps(output, default=str))
             return
@@ -398,29 +408,32 @@ def common_options(f: Callable) -> Callable:
 
 class IDType(click.ParamType):
     """Custom parameter type for handling shortened IDs."""
+
     name = "id"  # Add name attribute for Click's help text
-    
+
     def __init__(self, client: Optional[Client] = None, list_mode: bool = False):
         self.client = client
         self.list_mode = list_mode
-        
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+
+    def convert(
+        self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]
+    ) -> str:
         try:
             if not value:
                 self.fail("ID cannot be empty")
-                
+
             # Create client if not provided
             client = self.client or Client()
-            
+
             # Get all valid IDs based on mode
             if self.list_mode:
                 all_ids = [lst.id for lst in client.get_lists()]
             else:
                 all_ids = [r.id for r in client.get_all_reminders()]
-                
+
             # Try to expand the ID
             return expand_id(value, all_ids)
-            
+
         except ValueError as e:
             self.fail(str(e))
 
@@ -434,7 +447,13 @@ def cli() -> None:
 @cli.command()
 @common_options
 @click.argument("title")
-@click.option("--list", "list_id", required=True, type=IDType(list_mode=True), help="List ID to create the reminder in")
+@click.option(
+    "--list",
+    "list_id",
+    required=True,
+    type=IDType(list_mode=True),
+    help="List ID to create the reminder in",
+)
 @click.option("--notes", help="Optional notes for the reminder")
 @click.option(
     "--due",
@@ -548,7 +567,9 @@ def today(output_format: OutputFormat, hide_overdue: bool) -> None:
 
 @cli.command()
 @common_options
-@click.option("--list", "list_id", type=IDType(list_mode=True), help="Show reminders from a specific list")
+@click.option(
+    "--list", "list_id", type=IDType(list_mode=True), help="Show reminders from a specific list"
+)
 @click.option("--today", is_flag=True, help="Show reminders due today")
 @click.option("--overdue", is_flag=True, help="Show overdue reminders")
 @click.option("--search", help="Search reminders by text")
@@ -601,11 +622,11 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
     try:
         reminder = client.get_reminder(reminder_id)
         lists = {lst.id: lst for lst in client.get_lists()}
-        
+
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps(asdict(reminder), default=str))
             return
-            
+
         # Format dates nicely
         created = (
             reminder.creation_date.strftime("%Y-%m-%d %H:%M")
@@ -617,37 +638,49 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
             if reminder.modification_date
             else "unknown"
         )
-        
+
         # Get list information
         list_info = lists.get(reminder.list_id)
         list_name = list_info.title if list_info else "Unknown List"
         list_id = shorten_id(reminder.list_id, [lst.id for lst in lists.values()])
-        
+
         # Format priority
         priority_map = {1: "high", 5: "medium", 9: "low"}
         priority = priority_map.get(reminder.priority, "none")
-        
+
         # Create a rich table for the details
         table = Table(show_header=False, box=None, padding=(0, 1))
-        
+
         # Show reminder ID in context of all reminders
         all_reminders = client.get_all_reminders()
         short_id = shorten_id(reminder.id, [r.id for r in all_reminders])
-        
+
         table.add_row(Text("ID", style="bold"), Text(short_id, style="dim"))
         table.add_row(Text("Title", style="bold"), reminder.title)
-        table.add_row(Text("Status", style="bold"), 
-                     Text("✓ Completed", style="dim") if reminder.completed else "○ Active")
+        table.add_row(
+            Text("Status", style="bold"),
+            Text("✓ Completed", style="dim") if reminder.completed else "○ Active",
+        )
         # Format list with color
         list_color = format_color_block(list_info.color if list_info else None)
-        table.add_row(Text("List", style="bold"), 
-                     Text("").join([list_color, Text(" "), Text(f"{list_name} {list_id}", style="dim")]))
-        table.add_row(Text("Priority", style="bold"), 
-                     Text(priority, style="red" if priority == "high" 
-                          else "yellow" if priority == "medium"
-                          else "blue" if priority == "low"
-                          else "dim"))
-        
+        table.add_row(
+            Text("List", style="bold"),
+            Text("").join([list_color, Text(" "), Text(f"{list_name} {list_id}", style="dim")]),
+        )
+        table.add_row(
+            Text("Priority", style="bold"),
+            Text(
+                priority,
+                style=(
+                    "red"
+                    if priority == "high"
+                    else (
+                        "yellow" if priority == "medium" else "blue" if priority == "low" else "dim"
+                    )
+                ),
+            ),
+        )
+
         # Format due date in a friendly way
         if reminder.due_date:
             friendly_date = format_friendly_date(reminder.due_date)
@@ -655,15 +688,15 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
                 table.add_row(Text("Due", style="bold"), friendly_date)
         else:
             table.add_row(Text("Due", style="bold"), Text("not set", style="dim"))
-        
+
         if reminder.notes:
             table.add_row(Text("Notes", style="bold"), Text(reminder.notes))
-            
+
         table.add_row(Text("Created", style="bold"), Text(created, style="dim"))
         table.add_row(Text("Modified", style="bold"), Text(modified, style="dim"))
-        
+
         console.print(table)
-        
+
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": False, "error": str(e)}))

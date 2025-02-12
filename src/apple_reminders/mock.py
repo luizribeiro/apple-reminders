@@ -18,7 +18,7 @@ def decode_bytes_or_str(data: Union[bytes, str, None]) -> Optional[str]:
     if data is None:
         return None
     if isinstance(data, bytes):
-        return data.decode('utf-8')
+        return data.decode("utf-8")
     return str(data)
 
 
@@ -41,7 +41,8 @@ else:
 # Mock Swift API Implementation
 class MockSwiftAPI:
     """Mock implementation of the Swift Reminders API."""
-    active_pointers: Dict[int, 'MockSwiftAPI'] = {}  # Shared active pointers registry
+
+    active_pointers: Dict[int, "MockSwiftAPI"] = {}  # Shared active pointers registry
 
     def __init__(self) -> None:
         self.lists: Dict[str, ReminderList] = {}  # Stores ReminderList objects
@@ -88,16 +89,16 @@ class MockSwiftAPI:
     def CreateList(self, reader: ctypes.c_void_p, title: ctypes.c_char_p) -> LP_c_char:
         """Create a new reminder list with the given title."""
         self._verify_reader(reader)
-        
+
         title_str = decode_char_p(title)
         if title_str is None:
             raise ValueError("Title string is required")
-            
+
         try:
             data = json.loads(title_str)
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON in title string")
-            
+
         title_value = data.get("title")
         if not title_value:
             raise ValueError("Title is required")
@@ -116,11 +117,11 @@ class MockSwiftAPI:
     def CreateReminder(self, reader: ctypes.c_void_p, input_data: ctypes.c_char_p) -> LP_c_char:
         """Create a new reminder with the given data."""
         self._verify_reader(reader)
-        
+
         data_str = decode_char_p(input_data)
         if data_str is None:
             raise ValueError("Input data string is required")
-            
+
         try:
             data = json.loads(data_str)
         except json.JSONDecodeError:
@@ -156,7 +157,7 @@ class MockSwiftAPI:
     def SearchReminders(self, reader: ctypes.c_void_p, query: ctypes.c_char_p) -> LP_c_char:
         """Search for reminders matching the query string."""
         self._verify_reader(reader)
-        
+
         query_str = decode_char_p(query)
         if query_str is None:
             return self._to_char_ptr([])
@@ -172,22 +173,22 @@ class MockSwiftAPI:
     def GetReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
         """Get a specific reminder by ID."""
         self._verify_reader(reader)
-        
+
         reminder_id_str = decode_char_p(reminder_id)
         if reminder_id_str is None:
             raise ValueError("Reminder ID is required")
-        
+
         # Search through all lists for the reminder
         for list_reminders in self.reminders.values():
             if reminder_id_str in list_reminders:
                 return self._to_char_ptr(list_reminders[reminder_id_str].as_dict())
-                
+
         raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
 
     def GetReminders(self, reader: ctypes.c_void_p) -> LP_c_char:
         """Get all reminders."""
         self._verify_reader(reader)
-        
+
         all_reminders = []
         for reminders in self.reminders.values():
             for reminder in reminders.values():
@@ -202,7 +203,7 @@ class MockSwiftAPI:
     def GetRemindersInList(self, reader: ctypes.c_void_p, list_id: ctypes.c_char_p) -> LP_c_char:
         """Get all reminders in a specific list."""
         self._verify_reader(reader)
-        
+
         list_id_str = decode_char_p(list_id)
         if not list_id_str or list_id_str not in self.reminders:
             return self._to_char_ptr([])
@@ -211,33 +212,35 @@ class MockSwiftAPI:
     def CompleteReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
         """Mark a reminder as completed."""
         self._verify_reader(reader)
-        
+
         reminder_id_str = decode_char_p(reminder_id)
         if reminder_id_str is None:
             raise ValueError("Reminder ID is required")
-        
+
         # Search through all lists for the reminder
         for list_reminders in self.reminders.values():
             if reminder_id_str in list_reminders:
                 list_reminders[reminder_id_str].completed = True
                 return self._to_char_ptr({"success": True, "id": reminder_id_str})
-                
+
         raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
 
-    def UncompleteReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
+    def UncompleteReminder(
+        self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p
+    ) -> LP_c_char:
         """Mark a reminder as not completed."""
         self._verify_reader(reader)
-        
+
         reminder_id_str = decode_char_p(reminder_id)
         if reminder_id_str is None:
             raise ValueError("Reminder ID is required")
-        
+
         # Search through all lists for the reminder
         for list_reminders in self.reminders.values():
             if reminder_id_str in list_reminders:
                 list_reminders[reminder_id_str].completed = False
                 return self._to_char_ptr({"success": True, "id": reminder_id_str})
-                
+
         raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
 
     def FreeString(self, ptr: LP_c_char) -> None:
