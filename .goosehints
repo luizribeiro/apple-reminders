@@ -4,8 +4,34 @@ We also provide a command-line tool called `rem` for managing Apple Reminders, w
 
 All of our development environment is managed through `devenv`, while our virtual environments are setup with `uv` and automatically loaded by `devenv`. So it is important to run all of your commands from within `devenv shell`.
 
-You can check for typing errors with `devenv shell mypy .`. Avoid using `type: ignore` and instead fix the typing errors as much as possible.
+Our code quality is maintained through several tools:
 
-Our tests are written with `pytest`, so you can run them with `devenv shell pytest -v .`.
+1. **Type Checking** with mypy:
+   - Run with `devenv shell mypy .`
+   - Avoid using `type: ignore` and instead fix typing errors properly
+   - We have strict typing enabled with comprehensive checks
 
-It is very important to check for both typing errors and test failures before considering the task done.
+2. **Code Style & Quality** with ruff:
+   - Run with `devenv shell ruff check .`
+   - We enforce several rule sets:
+     - E/W: pycodestyle errors and warnings
+     - F: Pyflakes
+     - I: isort for import sorting
+     - B: flake8-bugbear for additional Python best practices
+   - Line length violations (E501) are ignored as black handles formatting
+
+3. **Code Formatting** with black:
+   - Line length is set to 100
+   - Target Python version is 3.9
+
+4. **Testing** with pytest:
+   - Run with `devenv shell pytest -v .`
+   - Tests are in the `tests` directory
+   - We use coverage reporting to ensure good test coverage
+   - Tests have a 3-second timeout for performance
+
+Before considering any task complete, you must ensure:
+1. All mypy type checks pass
+2. All ruff style and quality checks pass
+3. All tests pass with pytest
+4. Code is formatted according to black's standards

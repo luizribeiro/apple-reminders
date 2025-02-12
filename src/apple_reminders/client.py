@@ -107,7 +107,7 @@ class Client:
             for reminder in all_reminders:
                 if reminder.id == reminder_id:
                     return reminder
-            raise RuntimeError(f"Reminder with ID '{reminder_id}' not found")
+            raise RuntimeError(f"Reminder with ID '{reminder_id}' not found") from None
 
     def create_reminder(
         self,

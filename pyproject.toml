@@ -37,7 +37,7 @@ python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=apple_reminders --cov-report=term-missing --timeout=3"
 timeout = 3
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -47,7 +47,7 @@ select = [
 ]
 ignore = ["E501"]  # line length violations
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["apple_reminders"]
 
 [tool.black]

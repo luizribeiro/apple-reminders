@@ -272,8 +272,6 @@ class OutputFormatter:
         for reminder_list in lists:
             active_count = reminder_counts.get(reminder_list.id, 0)
             color_block = format_color_block(reminder_list.color)
-            # Add shortened ID before the title
-            short_id = shorten_id(reminder_list.id, all_ids)
 
             table.add_row(
                 color_block,
@@ -335,7 +333,7 @@ class OutputFormatter:
                     if list_id in lists:
                         list_info = lists[list_id]
                         list_color = format_color_block(list_info.color)
-                        short_id = shorten_id(list_id, [l.id for l in lists.values()])
+                        short_id = shorten_id(list_id, [list_item.id for list_item in lists.values()])
                         console.print(
                             Text("").join(
                                 [
@@ -491,7 +489,6 @@ def add(
             click.echo(json.dumps({"success": True, "id": reminder_id}))
         else:
             # Create a list with just the new reminder ID to get proper shortening
-            new_reminder = client.get_reminder(reminder_id)
             all_reminders = client.get_all_reminders()
             short_id = shorten_id(reminder_id, [r.id for r in all_reminders])
             console.print(f"✓ Created reminder: {title} {short_id}")

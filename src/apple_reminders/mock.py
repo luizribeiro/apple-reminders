@@ -97,7 +97,7 @@ class MockSwiftAPI:
         try:
             data = json.loads(title_str)
         except json.JSONDecodeError:
-            raise ValueError("Invalid JSON in title string")
+            raise ValueError("Invalid JSON in title string") from None
 
         title_value = data.get("title")
         if not title_value:
@@ -125,7 +125,7 @@ class MockSwiftAPI:
         try:
             data = json.loads(data_str)
         except json.JSONDecodeError:
-            raise ValueError("Invalid JSON in input data")
+            raise ValueError("Invalid JSON in input data") from None
 
         list_id = data.get("listId")
         title = data.get("title")
