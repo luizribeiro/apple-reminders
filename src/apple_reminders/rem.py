@@ -190,7 +190,6 @@ class OutputFormatter:
     def format_reminder_row(
         reminder: Reminder, 
         all_reminders: List[Reminder], 
-        lists: Dict[str, ReminderList] = None, 
         show_notes: bool = True,
         show_date: bool = False,
         show_status: bool = True
@@ -220,13 +219,6 @@ class OutputFormatter:
             title
         ])
 
-        # Add list info if available
-        if lists and reminder.list_id in lists:
-            reminder_list = lists[reminder.list_id]
-            list_color = format_color_block(reminder_list.color)
-            list_text = Text("").join([list_color, Text(" "), Text(reminder_list.title, style="dim")])
-            columns.append(list_text)
-
         if show_notes and reminder.notes:
             notes = Text(
                 reminder.notes[:50] + "..." if len(reminder.notes) > 50 else reminder.notes,
@@ -240,7 +232,6 @@ class OutputFormatter:
     def format_reminders_as_table(
         reminders: List[Reminder],
         *,
-        lists: Optional[Dict[str, ReminderList]] = None,
         show_notes: bool = True,
         show_date: bool = False,
         title: Optional[str] = None,
@@ -261,7 +252,7 @@ class OutputFormatter:
         for reminder in sorted_reminders:
             table.add_row(
                 *OutputFormatter.format_reminder_row(
-                    reminder, sorted_reminders, lists=lists, 
+                    reminder, sorted_reminders,
                     show_notes=show_notes, show_date=show_date,
                     show_status=show_status
                 )
@@ -311,25 +302,65 @@ class OutputFormatter:
             console.print(message)
             return
 
-        table = OutputFormatter.format_reminders_as_table(
-            reminders, lists=lists, show_notes=show_notes, show_date=show_date
-        )
-
-        # Add a subtle legend if there are prioritized items
-        has_priorities = any(r.priority in (1, 5, 9) for r in reminders)
-        if has_priorities:
-            legend = [
-                Text("!", style="red") + Text(" high  "),
-                Text("!", style="yellow") + Text(" medium  "),
-                Text("!", style="blue") + Text(" low")
-            ]
-            legend_text = Text("").join(legend)
-
+        # If we have a specific title (like for search results), or we're viewing a specific list,
+        # show all reminders together without list headers
         if title:
-            console.print(f"{title} ({len(reminders)})")
-        console.print(table)
-        if has_priorities:
-            console.print(legend_text)
+            table = OutputFormatter.format_reminders_as_table(
+                reminders, show_notes=show_notes, show_date=show_date
+            )
+            console.print(table)
+        else:
+            # Group reminders by list
+            reminders_by_list: Dict[str, List[Reminder]] = {}
+            for reminder in reminders:
+                reminders_by_list.setdefault(reminder.list_id, []).append(reminder)
+
+            # Sort lists by name
+            if lists:
+                sorted_list_ids = sorted(
+                    reminders_by_list.keys(),
+                    key=lambda lid: lists[lid].title if lid in lists else ""
+                )
+
+                # Print each list's reminders
+                first = True
+                for list_id in sorted_list_ids:
+                    list_reminders = reminders_by_list[list_id]
+                    if not first:
+                        console.print()  # Add spacing between lists
+                    first = False
+                    
+                    # Format list header with color
+                    if list_id in lists:
+                        list_info = lists[list_id]
+                        list_color = format_color_block(list_info.color)
+                        short_id = shorten_id(list_id, [l.id for l in lists.values()])
+                        console.print(Text("").join([
+                            list_color,
+                            Text(" "),
+                            Text(list_info.title),
+                            Text(" "),
+                            Text(short_id, style="dim"),
+                            Text(f" ({len(list_reminders)})", style="dim")
+                        ]))
+                    else:
+                        console.print(f"Unknown List ({len(list_reminders)})")
+
+                    # Show reminders for this list
+                    table = OutputFormatter.format_reminders_as_table(
+                        list_reminders, show_notes=show_notes, show_date=show_date
+                    )
+                    console.print(table)
+
+                # Add a subtle legend if there are prioritized items
+                has_priorities = any(r.priority in (1, 5, 9) for r in reminders)
+                if has_priorities:
+                    legend = [
+                        Text("!", style="red") + Text(" high  "),
+                        Text("!", style="yellow") + Text(" medium  "),
+                        Text("!", style="blue") + Text(" low")
+                    ]
+                    console.print(Text("").join(legend))
 
     @staticmethod
     def output_lists(
@@ -445,13 +476,13 @@ def add(
             new_reminder = client.get_reminder(reminder_id)
             all_reminders = client.get_all_reminders()
             short_id = shorten_id(reminder_id, [r.id for r in all_reminders])
-            console.print(f"\n✓ Created reminder: {title} {short_id}\n")
+            console.print(f"✓ Created reminder: {title} {short_id}")
 
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": False, "error": str(e)}))
         else:
-            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print(f"[red]Error:[/red] {e}")
 
 
 @cli.command("create-list")
@@ -471,13 +502,13 @@ def create_list(output_format: OutputFormat, title: str, color: Optional[str] = 
             # Get all lists for proper ID shortening
             all_lists = client.get_lists()
             short_id = shorten_id(list_id, [lst.id for lst in all_lists])
-            console.print(f"\n✓ Created list: {title} {short_id}\n")
+            console.print(f"✓ Created list: {title} {short_id}")
 
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": False, "error": str(e)}))
         else:
-            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print(f"[red]Error:[/red] {e}")
 
 
 @cli.command()
@@ -511,7 +542,7 @@ def today(output_format: OutputFormat, hide_overdue: bool) -> None:
         OutputFormatter.output_reminders(all_reminders, fmt=output_format)
     else:
         OutputFormatter.output_reminders(
-            all_reminders, lists=lists, show_notes=False, show_date=True  # Show full date for overdue tasks
+            all_reminders, lists=lists, show_notes=False, show_date=True
         )
 
 
@@ -586,11 +617,6 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
             if reminder.modification_date
             else "unknown"
         )
-        due = (
-            reminder.due_date.strftime("%Y-%m-%d %H:%M")
-            if reminder.due_date
-            else "not set"
-        )
         
         # Get list information
         list_info = lists.get(reminder.list_id)
@@ -642,7 +668,7 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": False, "error": str(e)}))
         else:
-            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print(f"[red]Error:[/red] {e}")
 
 
 @cli.command()
