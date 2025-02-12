@@ -253,7 +253,7 @@ class OutputFormatter:
 
         if not reminders:
             message = title or "No reminders"
-            console.print(f"\n{message}\n")
+            console.print(message)
             return
 
         table = OutputFormatter.format_reminders_as_table(
@@ -270,13 +270,11 @@ class OutputFormatter:
             ]
             legend_text = Text("").join(legend)
 
-        console.print()
         if title:
             console.print(f"{title} ({len(reminders)})")
         console.print(table)
         if has_priorities:
             console.print(legend_text)
-        console.print()
 
     @staticmethod
     def output_lists(
@@ -293,13 +291,12 @@ class OutputFormatter:
             return
 
         if not lists:
-            console.print("\nNo reminder lists found\n")
+            console.print("No reminder lists found")
             return
 
         table = OutputFormatter.format_lists_as_table(lists, reminder_counts)
-        console.print("\n📋 Lists")
+        console.print("📋 Lists")
         console.print(table)
-        console.print()
 
 
 def common_options(f: Callable) -> Callable:
@@ -581,9 +578,7 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
         table.add_row(Text("Created", style="bold"), Text(created, style="dim"))
         table.add_row(Text("Modified", style="bold"), Text(modified, style="dim"))
         
-        console.print("\n")
         console.print(table)
-        console.print("\n")
         
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
@@ -640,7 +635,7 @@ def stats(output_format: OutputFormat) -> None:
             f"[yellow]Due Today: {due_today}[/yellow]",
             f"[red]Overdue: {overdue}[/red]",
         ]
-        console.print("\n" + " • ".join(formatted_stats) + "\n")
+        console.print(" • ".join(formatted_stats))
 
 
 if __name__ == "__main__":
