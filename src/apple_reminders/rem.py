@@ -2,9 +2,10 @@
 
 import enum
 import json
+import re
 from dataclasses import asdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import click
 from rich.console import Console
@@ -16,6 +17,71 @@ from . import Client, Reminder, ReminderList
 
 # Initialize rich console
 console = Console()
+
+
+# Utility functions for handling UUIDs
+def find_minimum_length(ids: List[str]) -> int:
+    """
+    Find the minimum length needed to uniquely identify all IDs.
+    All IDs are compared in lowercase.
+    """
+    if not ids:
+        return 0
+        
+    # Convert all IDs to lowercase for comparison
+    lower_ids = [id.lower() for id in ids]
+    max_len = max(len(id) for id in lower_ids)
+    
+    # Start with length 4 as minimum for readability
+    for length in range(4, max_len + 1):
+        # Get prefixes of current length
+        prefixes = [id[:length] for id in lower_ids]
+        # If all prefixes are unique, we found our minimum length
+        if len(set(prefixes)) == len(prefixes):
+            return length
+            
+    return max_len
+
+def shorten_id(uuid: str, all_ids: Optional[List[str]] = None) -> str:
+    """
+    Shorten a UUID to the minimum length needed for uniqueness.
+    If all_ids is provided, finds minimum length needed for uniqueness among all IDs.
+    Otherwise returns first 8 characters.
+    Always returns lowercase.
+    """
+    if all_ids is None:
+        return uuid[:8].lower()
+        
+    min_length = find_minimum_length(all_ids)
+    return uuid[:min_length].lower()
+
+def expand_id(partial_id: str, all_ids: List[str]) -> str:
+    """
+    Expand a partial ID to its full UUID.
+    Case-insensitive matching is used.
+    Raises ValueError if ambiguous or not found.
+    """
+    if not partial_id:
+        raise ValueError("ID cannot be empty")
+    
+    # Convert input to lowercase for matching    
+    partial_id = partial_id.lower()
+    # Create case-mapping dict to preserve original IDs
+    id_map = {id.lower(): id for id in all_ids}
+    
+    matches = [
+        orig_id
+        for lower_id, orig_id in id_map.items()
+        if lower_id.startswith(partial_id)
+    ]
+    
+    if len(matches) == 0:
+        raise ValueError(f"No ID found starting with '{partial_id}'")
+    if len(matches) > 1:
+        matches_display = ", ".join(shorten_id(m, all_ids) for m in matches)
+        raise ValueError(f"Ambiguous ID '{partial_id}' matches multiple: {matches_display}")
+        
+    return matches[0]
 
 
 class OutputFormat(str, enum.Enum):
@@ -82,7 +148,7 @@ class OutputFormatter:
 
     @staticmethod
     def format_reminder_row(
-        reminder: Reminder, show_notes: bool = True, show_date: bool = False
+        reminder: Reminder, all_reminders: List[Reminder], show_notes: bool = True, show_date: bool = False
     ) -> List[Text]:
         """Format a reminder for table display."""
         # Basic styling
@@ -97,7 +163,15 @@ class OutputFormatter:
         due = Text(style_date(reminder.due_date, show_date=show_date))
 
         # Build columns
-        columns: List[Text] = [status, priority, title]
+        # Status, priority, ID, then title
+        all_ids = [r.id for r in all_reminders]
+        columns: List[Text] = [
+            status,
+            priority,
+            Text(shorten_id(reminder.id, all_ids), style="dim"),
+            title
+        ]
+        
         if due:
             columns.append(due)
 
@@ -123,13 +197,15 @@ class OutputFormatter:
             box=None, show_header=False, pad_edge=False, padding=(0, 1), collapse_padding=True
         )
 
-        for reminder in sorted(
+        sorted_reminders = sorted(
             reminders,
             key=lambda r: (r.completed, r.due_date or datetime.max.replace(tzinfo=timezone.utc)),
-        ):
+        )
+
+        for reminder in sorted_reminders:
             table.add_row(
                 *OutputFormatter.format_reminder_row(
-                    reminder, show_notes=show_notes, show_date=show_date
+                    reminder, sorted_reminders, show_notes=show_notes, show_date=show_date
                 )
             )
 
@@ -140,11 +216,21 @@ class OutputFormatter:
         """Create a formatted table of reminder lists."""
         table = Table(box=None, show_header=False, pad_edge=False, padding=(0, 1))
 
+        # Get all list IDs for shortening context
+        all_ids = [lst.id for lst in lists]
+
         for reminder_list in lists:
             active_count = reminder_counts.get(reminder_list.id, 0)
             color_block = format_color_block(reminder_list.color)
-
-            table.add_row(color_block, reminder_list.title, Text(f"{active_count} active", style="dim"))
+            # Add shortened ID before the title
+            short_id = shorten_id(reminder_list.id, all_ids)
+            
+            table.add_row(
+                color_block,
+                Text(shorten_id(reminder_list.id, all_ids), style="dim"), 
+                reminder_list.title,
+                Text(f"{active_count} active", style="dim")
+            )
 
         return table
 
@@ -220,6 +306,33 @@ def common_options(f: Callable) -> Callable:
     return f
 
 
+class IDType(click.ParamType):
+    """Custom parameter type for handling shortened IDs."""
+    def __init__(self, client: Optional[Client] = None, list_mode: bool = False):
+        self.client = client
+        self.list_mode = list_mode
+        
+    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        try:
+            if not value:
+                self.fail("ID cannot be empty")
+                
+            # Create client if not provided
+            client = self.client or Client()
+            
+            # Get all valid IDs based on mode
+            if self.list_mode:
+                all_ids = [lst.id for lst in client.get_lists()]
+            else:
+                all_ids = [r.id for r in client.get_all_reminders()]
+                
+            # Try to expand the ID
+            return expand_id(value, all_ids)
+            
+        except ValueError as e:
+            self.fail(str(e))
+
+
 @click.group()
 def cli() -> None:
     """Reminders CLI"""
@@ -229,7 +342,7 @@ def cli() -> None:
 @cli.command()
 @common_options
 @click.argument("title")
-@click.option("--list", "list_id", required=True, help="List ID to create the reminder in")
+@click.option("--list", "list_id", required=True, type=IDType(list_mode=True), help="List ID to create the reminder in")
 @click.option("--notes", help="Optional notes for the reminder")
 @click.option(
     "--due",
@@ -267,7 +380,11 @@ def add(
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": True, "id": reminder_id}))
         else:
-            console.print(f"\n✓ Created reminder: {title}\n")
+            # Create a list with just the new reminder ID to get proper shortening
+            new_reminder = client.get_reminder(reminder_id)
+            all_reminders = client.get_all_reminders()
+            short_id = shorten_id(reminder_id, [r.id for r in all_reminders])
+            console.print(f"\n✓ Created reminder: {title} {short_id}\n")
 
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
@@ -290,7 +407,10 @@ def create_list(output_format: OutputFormat, title: str, color: Optional[str] = 
         if output_format == OutputFormat.JSON:
             click.echo(json.dumps({"success": True, "id": list_id}))
         else:
-            console.print(f"\n✓ Created list: {title}\n")
+            # Get all lists for proper ID shortening
+            all_lists = client.get_lists()
+            short_id = shorten_id(list_id, [lst.id for lst in all_lists])
+            console.print(f"\n✓ Created list: {title} {short_id}\n")
 
     except RuntimeError as e:
         if output_format == OutputFormat.JSON:
@@ -333,7 +453,7 @@ def today(output_format: OutputFormat, hide_overdue: bool) -> None:
 
 @cli.command()
 @common_options
-@click.option("--list", "list_id", help="Show reminders from a specific list")
+@click.option("--list", "list_id", type=IDType(list_mode=True), help="Show reminders from a specific list")
 @click.option("--today", is_flag=True, help="Show reminders due today")
 @click.option("--overdue", is_flag=True, help="Show overdue reminders")
 @click.option("--search", help="Search reminders by text")
