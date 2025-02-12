@@ -132,11 +132,11 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
 
 
 def format_color_block(hex_color: Optional[str]) -> Text:
-    """Format a color as a visible block in the terminal."""
+    """Format a color as a visible circle in the terminal."""
     if not hex_color:
-        return Text("⬜️")
+        return Text("●", style="dim")  # Using a dimmed circle for empty colors
     r, g, b = hex_to_rgb(hex_color)
-    return Text("█████", style=f"rgb({r},{g},{b})")
+    return Text("●", style=f"rgb({r},{g},{b})")
 
 
 def format_status(completed: bool) -> Text:
