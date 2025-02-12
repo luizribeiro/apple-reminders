@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest  # Required for Apple's EventKit and Swift
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v9
+    
+    - name: Install devenv
+      uses: cachix/devenv-install-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Install Python Dependencies
+      run: |
+        devenv shell uv pip install -e .[dev]
+
+    - name: Build Swift Library
+      run: |
+        devenv shell swift build
+
+    - name: Test Swift Library
+      run: |
+        devenv shell swift test
+        
+    - name: Check Code Formatting (black)
+      run: |
+        devenv shell black --check .
+        
+    - name: Check Code Quality (ruff)
+      run: |
+        devenv shell ruff check .
+        
+    - name: Check Types (mypy)
+      run: |
+        devenv shell mypy .
+        
+    - name: Run Python Tests
+      run: |
+        devenv shell pytest -v
+
+    - name: Build Python Package
+      run: |
+        devenv shell python -m build

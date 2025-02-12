@@ -1,5 +1,7 @@
 # Apple Reminders Python Library
 
+[![CI](https://github.com/luizribeiro/apple-reminders/actions/workflows/ci.yml/badge.svg)](https://github.com/luizribeiro/apple-reminders/actions/workflows/ci.yml)
+
 A Python library for interacting with Apple's Reminders app on macOS, providing both a programmable interface and a command-line utility.
 
 ## Features
