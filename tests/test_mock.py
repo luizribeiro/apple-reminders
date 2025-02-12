@@ -2,10 +2,11 @@
 
 import ctypes
 import inspect
-from typing import Dict, Any
+from typing import Any, Dict
+
 import pytest
 
-from apple_reminders import _lib
+from apple_reminders.ffi import _lib
 from apple_reminders.mock import MockSwiftAPI
 
 

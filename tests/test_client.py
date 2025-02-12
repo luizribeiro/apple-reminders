@@ -1,6 +1,7 @@
 import unittest
-from apple_reminders.mock import MockRemindersTestHelper
+
 from apple_reminders import Client
+from apple_reminders.mock import MockRemindersTestHelper
 
 
 class TestClient(unittest.TestCase):

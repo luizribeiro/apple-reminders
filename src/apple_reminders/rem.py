@@ -1,19 +1,18 @@
 """CLI interface for Apple Reminders."""
 
-from datetime import datetime, timezone
-from typing import List, Optional, Any, Callable, Dict, Tuple, Union
+import enum
 import json
 from dataclasses import asdict
-import enum
+from datetime import datetime, timezone
+from typing import Callable, Dict, List, Optional, Tuple
 
 import click
 from rich.console import Console
-from rich.table import Table
-from rich import box
-from rich.text import Text
 from rich.style import Style
+from rich.table import Table
+from rich.text import Text
 
-from . import Client, ReminderList, Reminder
+from . import Client, Reminder, ReminderList
 
 # Initialize rich console
 console = Console()
@@ -141,11 +140,11 @@ class OutputFormatter:
         """Create a formatted table of reminder lists."""
         table = Table(box=None, show_header=False, pad_edge=False, padding=(0, 1))
 
-        for l in lists:
-            active_count = reminder_counts.get(l.id, 0)
-            color_block = format_color_block(l.color)
+        for reminder_list in lists:
+            active_count = reminder_counts.get(reminder_list.id, 0)
+            color_block = format_color_block(reminder_list.color)
 
-            table.add_row(color_block, l.title, Text(f"{active_count} active", style="dim"))
+            table.add_row(color_block, reminder_list.title, Text(f"{active_count} active", style="dim"))
 
         return table
 
@@ -194,7 +193,7 @@ class OutputFormatter:
         """Output lists in the specified format."""
         if fmt == OutputFormat.JSON:
             output = [
-                {**asdict(l), "active_reminders": reminder_counts.get(l.id, 0)} for l in lists
+                {**asdict(reminder_list), "active_reminders": reminder_counts.get(reminder_list.id, 0)} for reminder_list in lists
             ]
             click.echo(json.dumps(output, default=str))
             return
@@ -360,7 +359,7 @@ def list(
         title = f"🔍 '{search}'"
         reminders = client.search_reminders(search)
     elif list_id:
-        lists = {l.id: l.title for l in client.get_lists()}
+        lists = {reminder_list.id: reminder_list.title for reminder_list in client.get_lists()}
         title = f"📋 {lists.get(list_id, 'Unknown List')}"
         reminders = client.get_reminders_in_list(list_id)
     else:
@@ -384,9 +383,9 @@ def lists(output_format: OutputFormat) -> None:
 
     # Get counts for each list
     reminder_counts: Dict[str, int] = {}
-    for l in reminder_lists:
-        reminders = client.get_reminders_in_list(l.id)
-        reminder_counts[l.id] = len([r for r in reminders if not r.completed])
+    for reminder_list in reminder_lists:
+        reminders = client.get_reminders_in_list(reminder_list.id)
+        reminder_counts[reminder_list.id] = len([r for r in reminders if not r.completed])
 
     OutputFormatter.output_lists(reminder_lists, reminder_counts, fmt=output_format)
 
