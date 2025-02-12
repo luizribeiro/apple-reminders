@@ -32,6 +32,15 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+include = [
+    "src/apple_reminders/**/*.py",
+    "src/apple_reminders/lib/*.dylib"
+]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "build.py"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

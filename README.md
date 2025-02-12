@@ -99,31 +99,37 @@ The `rem` command-line tool provides quick access to your reminders:
 
 ```bash
 # Basic commands
-rem today              # Show today's and overdue reminders
+rem today             # Show today's and overdue reminders
 rem list              # List all reminders
-rem lists             # Show all reminder lists
+rem lists             # Show all reminder lists (and get their IDs)
 rem stats             # Show statistics
-rem show REMINDER_ID  # Show detailed information about a specific reminder
+rem show abc123       # Show detailed information about reminder with ID abc123
 
 # Creating reminders and lists
-rem add "Buy milk" --list "Shopping" --due "2024-03-20 15:00" --priority high --notes "2% milk"
-rem create-list "Shopping" --color "#FF0000"
+rem create-list "Shopping" --color "#FF0000"    # Creates a list and returns its ID
+rem add "Buy milk" --list abc123 --due "2024-03-20 15:00" --priority high --notes "2% milk"
+                                                # abc123 is the list ID from create-list
 
 # Managing reminders
-rem done REMINDER_ID      # Mark reminder as completed
-rem undone REMINDER_ID    # Mark reminder as not completed
+rem done def456       # Mark reminder def456 as completed
+rem undone def456     # Mark reminder def456 as not completed
 
 # Filtering options
-rem list --overdue    # Show overdue reminders
-rem list --today      # Show today's reminders
+rem list --overdue             # Show overdue reminders
+rem list --today               # Show today's reminders
 rem list --search "shopping"   # Search reminders
-rem list --list "Shopping"    # Show reminders from a specific list
-rem list --all        # Show all reminders including completed
+rem list --list abc123         # Show reminders from list with ID abc123
+rem list --all                 # Show all reminders including completed
 
 # Output formats
 rem list --format json    # Output as JSON
 rem today --format json   # JSON output for today's reminders
-rem add --format json    # JSON output for creation result
+rem add --format json     # JSON output for creation result
+
+Note: List and reminder IDs are shown in the CLI output in a shortened form.
+You can use these shortened IDs in commands as long as they uniquely identify the item.
+For example, if a full ID is "1234-5678", you might be able to use just "1234"
+if no other IDs start with those digits.
 ```
 
 ## Reminder Objects
@@ -132,14 +138,14 @@ The library provides rich objects with all reminder metadata:
 
 ```python
 class Reminder:
-    id: str                  # Unique identifier
-    title: str              # Reminder title
-    due_date: datetime      # Due date (optional)
-    completed: bool         # Completion status
-    notes: str             # Notes (optional)
-    priority: int          # Priority (1=high, 5=medium, 9=low)
-    list_id: str           # Parent list ID
-    creation_date: datetime    # When created
+    id: str                      # Unique identifier
+    title: str                   # Reminder title
+    due_date: datetime           # Due date (optional)
+    completed: bool              # Completion status
+    notes: str                   # Notes (optional)
+    priority: int                # Priority (1=high, 5=medium, 9=low)
+    list_id: str                 # Parent list ID
+    creation_date: datetime      # When created
     modification_date: datetime  # Last modified
 ```
 
@@ -147,7 +153,7 @@ class Reminder:
 
 ```python
 class ReminderList:
-    id: str                  # Unique identifier
+    id: str                 # Unique identifier
     title: str              # List title
     color: Optional[str]    # List color in hex format (e.g., "#FF0000")
 ```
@@ -155,6 +161,99 @@ class ReminderList:
 ## Permissions
 
 On first use, macOS will prompt for permission to access Reminders. This is required for both the library and command-line tool to function.
+
+## Development
+
+### Project Structure
+
+This project combines a Swift library (using Apple's EventKit) with a Python interface:
+
+```
+apple-reminders/
+├── Sources/             # Swift source code
+│   └── RemindersLib/    # Swift library implementation
+├── src/
+│   └── apple_reminders/ # Python package
+│       ├── lib/         # Built Swift dylib gets packaged here
+│       ├── client.py    # Main Python interface
+│       ├── ffi.py       # Swift/Python FFI bindings
+│       └── rem.py       # CLI implementation
+├── tests/               # Python tests
+├── build.py             # Custom build hooks for packaging
+└── pyproject.toml       # Python project configuration
+```
+
+### Architecture
+
+The package works through several layers:
+
+1. Swift Library (`RemindersLib`):
+   - Interfaces directly with Apple's EventKit
+   - Handles all direct Reminders.app interactions
+   - Provides a C-compatible FFI interface
+
+2. Python FFI Layer (`ffi.py`):
+   - Uses ctypes to load and interact with the Swift library
+   - Handles type conversions between Swift and Python
+   - Manages library discovery and loading
+
+3. Python Interface (`client.py`):
+   - Provides a Pythonic API over the FFI layer
+   - Handles data conversions and error management
+   - Implements additional convenience methods
+
+### Development Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/apple-reminders.git
+cd apple-reminders
+```
+
+2. Setup development environment:
+```bash
+devenv shell
+```
+
+3. Build the Swift library:
+```bash
+swift build -c release  # Uses release build for better performance
+```
+
+4. Install in development mode:
+```bash
+pip install -e .
+```
+
+### Building for Distribution
+
+The package uses a custom build system to properly bundle the Swift library with the Python package:
+
+1. During development:
+   - The Swift library is built separately (`swift build -c release`)
+   - The package looks for the library in `.build/release/`
+   
+2. When building for distribution:
+   - `python -m build` triggers the custom build hook
+   - The Swift library is automatically built
+   - The dylib is packaged into the wheel under `apple_reminders/lib/`
+   
+3. When installed from PyPI:
+   - The wheel includes the pre-built dylib
+   - The package automatically finds and loads the bundled library
+   - Platform checks ensure it only installs on macOS
+
+To build a distribution package:
+```bash
+python -m build
+```
+
+This creates:
+- A wheel (`.whl`) containing the bundled library
+- A source distribution (`.tar.gz`) for development
+
+### Platform Support
+
+This package only works on macOS due to its dependency on Apple's EventKit framework. The package includes checks to ensure it's only installed on compatible systems.
 
 ## Contributing
 

@@ -1,18 +1,32 @@
 import ctypes
+import sys
 from pathlib import Path
 
-# Find the library relative to the script location
-SCRIPT_DIR = Path(__file__).parent.parent.parent
-LIB_PATH = SCRIPT_DIR / ".build/debug/libRemindersLib.dylib"
+if sys.platform != "darwin":
+    raise RuntimeError("This package only supports macOS")
 
-if not LIB_PATH.exists():
+def find_library() -> Path:
+    """Find the RemindersLib dylib."""
+    # First, check if we're in development mode (editable install)
+    script_dir = Path(__file__).parent.parent.parent
+    dev_lib = script_dir / ".build/release/libRemindersLib.dylib"
+    if dev_lib.exists():
+        return dev_lib
+        
+    # Otherwise, look in the package's lib directory
+    package_lib = Path(__file__).parent / "lib/libRemindersLib.dylib"
+    if package_lib.exists():
+        return package_lib
+        
     raise RuntimeError(
-        f"Swift library not found at {LIB_PATH}. "
-        "Make sure you've built the Swift code with 'swift build'"
+        "Swift library not found. This could mean:\n"
+        "1. You're in development and haven't built the library ('swift build -c release')\n"
+        "2. The package was not installed correctly\n"
+        "3. You're not on macOS"
     )
 
 # Load the dynamic library
-_lib = ctypes.CDLL(str(LIB_PATH))
+_lib = ctypes.CDLL(str(find_library()))
 
 # Define the function signatures
 _lib.CreateRemindersReader.restype = ctypes.c_void_p
