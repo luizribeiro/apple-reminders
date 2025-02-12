@@ -188,7 +188,12 @@ class OutputFormatter:
 
     @staticmethod
     def format_reminder_row(
-        reminder: Reminder, all_reminders: List[Reminder], lists: Dict[str, ReminderList] = None, show_notes: bool = True, show_date: bool = False
+        reminder: Reminder, 
+        all_reminders: List[Reminder], 
+        lists: Dict[str, ReminderList] = None, 
+        show_notes: bool = True,
+        show_date: bool = False,
+        show_status: bool = True
     ) -> List[Text]:
         """Format a reminder for table display."""
         # Basic styling
@@ -202,14 +207,18 @@ class OutputFormatter:
                 title = Text("").join([title, Text(" "), friendly_date])
 
         # Build columns
-        # Status, priority, ID, then title
+        # Status (if needed), priority, ID, then title
         all_ids = [r.id for r in all_reminders]
-        columns: List[Text] = [
-            format_status(reminder.completed),
+        columns: List[Text] = []
+        
+        if show_status:
+            columns.append(format_status(reminder.completed))
+            
+        columns.extend([
             style_priority(reminder.priority),
             Text(shorten_id(reminder.id, all_ids), style="dim"),
             title
-        ]
+        ])
 
         # Add list info if available
         if lists and reminder.list_id in lists:
@@ -246,10 +255,15 @@ class OutputFormatter:
             key=lambda r: (r.completed, r.due_date or datetime.max.replace(tzinfo=timezone.utc)),
         )
 
+        # Only show status column if there are any completed items
+        show_status = any(r.completed for r in sorted_reminders)
+
         for reminder in sorted_reminders:
             table.add_row(
                 *OutputFormatter.format_reminder_row(
-                    reminder, sorted_reminders, lists=lists, show_notes=show_notes, show_date=show_date
+                    reminder, sorted_reminders, lists=lists, 
+                    show_notes=show_notes, show_date=show_date,
+                    show_status=show_status
                 )
             )
 
