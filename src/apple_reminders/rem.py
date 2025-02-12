@@ -594,8 +594,8 @@ def list(
         title = f"🔍 '{search}'"
         reminders = client.search_reminders(search)
     elif list_id:
-        lists = {reminder_list.id: reminder_list.title for reminder_list in client.get_lists()}
-        title = lists.get(list_id, "Unknown List")
+        lists = {lst.id: lst for lst in client.get_lists()}
+        title = lists[list_id].title if list_id in lists else "Unknown List"
         reminders = client.get_reminders_in_list(list_id)
     else:
         title = None  # Remove the "All" heading
