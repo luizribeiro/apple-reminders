@@ -91,21 +91,21 @@ class OutputFormat(str, enum.Enum):
     JSON = "json"  # JSON output
 
 
-def style_priority(priority: int) -> str:
+def style_priority(priority: int) -> Text:
     """Return styled priority indicator."""
     if priority == 1:
-        return "[red]![/red]"  # High priority
+        return Text("!", style="red")  # High priority
     elif priority == 5:
-        return "[yellow]![/yellow]"  # Medium priority
+        return Text("!", style="yellow")  # Medium priority
     elif priority == 9:
-        return "[blue]![/blue]"  # Low priority
-    return " "  # No priority
+        return Text("!", style="blue")  # Low priority
+    return Text(" ")  # No priority
 
 
-def style_date(date: Optional[datetime], show_date: bool = False) -> str:
+def style_date(date: Optional[datetime], show_date: bool = False) -> Text:
     """Return styled date string."""
     if not date:
-        return ""
+        return Text("")
 
     now = datetime.now(timezone.utc)
     if show_date:
@@ -113,12 +113,13 @@ def style_date(date: Optional[datetime], show_date: bool = False) -> str:
     else:
         date_str = date.strftime("%H:%M")
 
+    # Use Rich's Text object directly with style
     if date.date() == now.date():
-        return f"[cyan]{date_str}[/cyan]"
+        return Text(date_str, style="cyan")
     elif date < now:
-        return f"[red]{date_str}[/red]"
+        return Text(date_str, style="red")
     else:
-        return f"[yellow]{date_str}[/yellow]"
+        return Text(date_str, style="yellow")
 
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -130,17 +131,17 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     return (r, g, b)
 
 
-def format_color_block(hex_color: Optional[str]) -> str:
+def format_color_block(hex_color: Optional[str]) -> Text:
     """Format a color as a visible block in the terminal."""
     if not hex_color:
-        return "⬜️"
+        return Text("⬜️")
     r, g, b = hex_to_rgb(hex_color)
-    return f"[rgb({r},{g},{b})]█████[/]"
+    return Text("█████", style=f"rgb({r},{g},{b})")
 
 
-def format_status(completed: bool) -> str:
+def format_status(completed: bool) -> Text:
     """Format the status indicator."""
-    return "[dim]✓[/dim]" if completed else "○"
+    return Text("✓", style="dim") if completed else Text("○")
 
 
 class OutputFormatter:
@@ -155,25 +156,19 @@ class OutputFormatter:
         title_style = Style(dim=True) if reminder.completed else None
         title = Text(reminder.title, style=title_style if title_style else "")
 
-        # Status and priority
-        status = Text(format_status(reminder.completed))
-        priority = Text(style_priority(reminder.priority))
-
-        # Due date
-        due = Text(style_date(reminder.due_date, show_date=show_date))
-
         # Build columns
         # Status, priority, ID, then title
         all_ids = [r.id for r in all_reminders]
         columns: List[Text] = [
-            status,
-            priority,
+            format_status(reminder.completed),
+            style_priority(reminder.priority),
             Text(shorten_id(reminder.id, all_ids), style="dim"),
             title
         ]
         
-        if due:
-            columns.append(due)
+        # Due date
+        if reminder.due_date:
+            columns.append(style_date(reminder.due_date, show_date=show_date))
 
         if show_notes and reminder.notes:
             notes = Text(
@@ -259,8 +254,12 @@ class OutputFormatter:
         # Add a subtle legend if there are prioritized items
         has_priorities = any(r.priority in (1, 5, 9) for r in reminders)
         if has_priorities:
-            legend = ["[red]![/red] high", "[yellow]![/yellow] medium", "[blue]![/blue] low"]
-            legend_text = Text("  ".join(legend), style="dim")
+            legend = [
+                Text("!", style="red") + Text(" high  "),
+                Text("!", style="yellow") + Text(" medium  "),
+                Text("!", style="blue") + Text(" low")
+            ]
+            legend_text = Text("").join(legend)
 
         console.print()
         if title:
