@@ -307,6 +307,8 @@ def common_options(f: Callable) -> Callable:
 
 class IDType(click.ParamType):
     """Custom parameter type for handling shortened IDs."""
+    name = "id"  # Add name attribute for Click's help text
+    
     def __init__(self, client: Optional[Client] = None, list_mode: bool = False):
         self.client = client
         self.list_mode = list_mode
