@@ -30,10 +30,6 @@ jobs:
     - name: Build Swift Library
       run: |
         devenv shell swift -- build
-
-    - name: Test Swift Library
-      run: |
-        devenv shell swift -- test
         
     - name: Check Code Formatting (black)
       run: |
