@@ -10,12 +10,12 @@ let package = Package(
         .library(
             name: "RemindersLib",
             type: .dynamic,
-            targets: ["TodayReminders"]),
+            targets: ["RemindersLib"]),
     ],
     dependencies: [],
     targets: [
         .target(
-            name: "TodayReminders",
+            name: "RemindersLib",
             dependencies: [],
             publicHeadersPath: "include"
         )
