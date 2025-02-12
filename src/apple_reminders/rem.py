@@ -336,7 +336,6 @@ class OutputFormatter:
             return
 
         table = OutputFormatter.format_lists_as_table(lists, reminder_counts)
-        console.print("📋 Lists")
         console.print(table)
 
 
@@ -531,10 +530,10 @@ def list(
         reminders = client.search_reminders(search)
     elif list_id:
         lists = {reminder_list.id: reminder_list.title for reminder_list in client.get_lists()}
-        title = f"📋 {lists.get(list_id, 'Unknown List')}"
+        title = lists.get(list_id, "Unknown List")
         reminders = client.get_reminders_in_list(list_id)
     else:
-        title = "📋 All"
+        title = None  # Remove the "All" heading
         reminders = client.get_all_reminders()
 
     if not show_all:
