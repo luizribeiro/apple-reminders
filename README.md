@@ -170,17 +170,21 @@ This project combines a Swift library (using Apple's EventKit) with a Python int
 
 ```
 apple-reminders/
-├── Sources/             # Swift source code
-│   └── RemindersLib/    # Swift library implementation
+├── Sources/                    # Swift source code
+│   └── RemindersLib/           # Swift library using EventKit
+│       ├── RemindersLib.swift  # Main Swift implementation
+│       └── include/            # C-compatible header
 ├── src/
-│   └── apple_reminders/ # Python package
-│       ├── lib/         # Built Swift dylib gets packaged here
-│       ├── client.py    # Main Python interface
-│       ├── ffi.py       # Swift/Python FFI bindings
-│       └── rem.py       # CLI implementation
-├── tests/               # Python tests
-├── build.py             # Custom build hooks for packaging
-└── pyproject.toml       # Python project configuration
+│   └── apple_reminders/        # Python package
+│       ├── lib/                # Built Swift dylib gets packaged here
+│       ├── client.py           # Main Python interface
+│       ├── ffi.py              # Swift/Python FFI bindings
+│       └── rem.py              # CLI implementation
+├── tests/                      # Python tests
+├── Package.swift               # Swift package configuration
+├── pyproject.toml              # Python project configuration
+├── hatch_build.py              # Custom build hooks for Hatch
+└── RemindersLib.entitlements   # macOS security entitlements
 ```
 
 ### Architecture
@@ -226,30 +230,38 @@ pip install -e .
 
 ### Building for Distribution
 
-The package uses a custom build system to properly bundle the Swift library with the Python package:
+The package uses Hatch for building and packaging, which handles both the Swift and Python components:
 
-1. During development:
-   - The Swift library is built separately (`swift build -c release`)
-   - The package looks for the library in `.build/release/`
-   
-2. When building for distribution:
-   - `python -m build` triggers the custom build hook
-   - The Swift library is automatically built
-   - The dylib is packaged into the wheel under `apple_reminders/lib/`
-   
-3. When installed from PyPI:
-   - The wheel includes the pre-built dylib
-   - The package automatically finds and loads the bundled library
-   - Platform checks ensure it only installs on macOS
-
-To build a distribution package:
+1. Build the package:
 ```bash
+# Using hatch directly (recommended)
+hatch build
+
+# Or using pip's build module
+pip install build
 python -m build
 ```
 
-This creates:
-- A wheel (`.whl`) containing the bundled library
+This creates in the `dist/` directory:
+- A wheel (`.whl`) containing the bundled library, ready for distribution
 - A source distribution (`.tar.gz`) for development
+
+2. Upload to PyPI (after creating an account and getting an API token):
+```bash
+pip install twine
+twine upload dist/*
+```
+
+During the build:
+- The Swift library is automatically compiled in release mode
+- The dylib is bundled into the wheel package
+- Platform tags are set correctly for macOS/arm64
+- The package ensures it's only installed on compatible systems
+
+Note: For development, you can install in editable mode with:
+```bash
+pip install -e .
+```
 
 ### Platform Support
 
