@@ -506,7 +506,7 @@ def list(
     lists = {lst.id: lst for lst in client.get_lists()}
 
     OutputFormatter.output_reminders(
-        reminders, fmt=output_format, title=title, lists=lists, show_notes=True, show_date=True
+        reminders, fmt=output_format, title=title, lists=lists, show_notes=False, show_date=True
     )
 
 
