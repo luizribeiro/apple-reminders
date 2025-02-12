@@ -2,10 +2,9 @@
 
 import enum
 import json
-import re
 from dataclasses import asdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple
 
 import click
 from rich.console import Console
