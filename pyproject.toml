@@ -3,7 +3,7 @@ name = "apple-reminders"
 version = "0.1.0"
 description = "A Python library for interacting with Apple's Reminders app"
 authors = [
-    { name = "Luiz Ribeiro", email = "luizribeiro@gmail.com" },
+    { name = "Your Name", email = "your.email@example.com" },
 ]
 dependencies = [
     "click>=8.0.0",
@@ -48,13 +48,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
+packages = ["src/apple_reminders"]
 include = [
     "src/apple_reminders/**/*.py",
-    "src/apple_reminders/lib/*.dylib"
+    "src/apple_reminders/lib/*.dylib",
 ]
 
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.wheel.hooks.custom]
-path = "build.py"
+dependencies = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
