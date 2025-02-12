@@ -102,24 +102,63 @@ def style_priority(priority: int) -> Text:
     return Text(" ")  # No priority
 
 
-def style_date(date: Optional[datetime], show_date: bool = False) -> Text:
-    """Return styled date string."""
+def format_friendly_date(date: Optional[datetime]) -> Optional[Text]:
+    """Format a date in a user-friendly way."""
     if not date:
-        return Text("")
+        return None
 
     now = datetime.now(timezone.utc)
-    if show_date:
-        date_str = date.strftime("%Y-%m-%d %H:%M")
-    else:
-        date_str = date.strftime("%H:%M")
+    diff = date - now
 
-    # Use Rich's Text object directly with style
     if date.date() == now.date():
-        return Text(date_str, style="cyan")
-    elif date < now:
-        return Text(date_str, style="red")
-    else:
-        return Text(date_str, style="yellow")
+        if diff.total_seconds() < 0:
+            return Text("(due today)", style="red")
+        return Text("(due today)", style="yellow")
+    
+    # For past dates
+    if diff.total_seconds() < 0:
+        days = abs(diff.days)
+        if days == 1:
+            return Text("(due yesterday)", style="red")
+        if days < 7:
+            return Text(f"(due {days} days ago)", style="red")
+        if days < 14:
+            return Text("(due last week)", style="red")
+        if days < 30:
+            weeks = days // 7
+            return Text(f"(due {weeks} weeks ago)", style="red")
+        if days < 365:
+            months = days // 30
+            return Text(f"(due {months} months ago)", style="red")
+        years = days // 365
+        return Text(f"(due {years} years ago)", style="red")
+    
+    # For future dates
+    days = diff.days
+    hours = diff.seconds // 3600
+
+    # If due within next 24 hours, show in yellow
+    if days == 0:
+        if hours < 1:
+            minutes = diff.seconds // 60
+            return Text(f"(due in {minutes} minutes)", style="yellow")
+        return Text(f"(due in {hours} hours)", style="yellow")
+    
+    # Everything else in dim style
+    if days == 1:
+        return Text("(due tomorrow)", style="dim")
+    if days < 7:
+        return Text(f"(due in {days} days)", style="dim")
+    if days < 14:
+        return Text("(due next week)", style="dim")
+    if days < 30:
+        weeks = days // 7
+        return Text(f"(due in {weeks} weeks)", style="dim")
+    if days < 365:
+        months = days // 30
+        return Text(f"(due in {months} months)", style="dim")
+    years = days // 365
+    return Text(f"(due in {years} years)", style="dim")
 
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -155,6 +194,12 @@ class OutputFormatter:
         # Basic styling
         title_style = Style(dim=True) if reminder.completed else None
         title = Text(reminder.title, style=title_style if title_style else "")
+        
+        # Add friendly due date to title if present
+        if reminder.due_date:
+            friendly_date = format_friendly_date(reminder.due_date)
+            if friendly_date:
+                title = Text("").join([title, Text(" "), friendly_date])
 
         # Build columns
         # Status, priority, ID, then title
@@ -165,10 +210,6 @@ class OutputFormatter:
             Text(shorten_id(reminder.id, all_ids), style="dim"),
             title
         ]
-        
-        # Due date
-        if reminder.due_date:
-            columns.append(style_date(reminder.due_date, show_date=show_date))
 
         # Add list info if available
         if lists and reminder.list_id in lists:
@@ -567,10 +608,14 @@ def show(output_format: OutputFormat, reminder_id: str) -> None:
                           else "yellow" if priority == "medium"
                           else "blue" if priority == "low"
                           else "dim"))
-        table.add_row(Text("Due", style="bold"), 
-                     Text(due, style="red" if reminder.due_date and reminder.due_date < datetime.now(timezone.utc)
-                          else "yellow" if reminder.due_date
-                          else "dim"))
+        
+        # Format due date in a friendly way
+        if reminder.due_date:
+            friendly_date = format_friendly_date(reminder.due_date)
+            if friendly_date:
+                table.add_row(Text("Due", style="bold"), friendly_date)
+        else:
+            table.add_row(Text("Due", style="bold"), Text("not set", style="dim"))
         
         if reminder.notes:
             table.add_row(Text("Notes", style="bold"), Text(reminder.notes))
