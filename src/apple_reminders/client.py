@@ -178,3 +178,35 @@ class Client:
             raise RuntimeError(f"Failed to create list, missing id: {result.get('error')}")
 
         return list_id
+
+    def complete_reminder(self, reminder_id: str) -> None:
+        """Mark a reminder as completed.
+
+        Args:
+            reminder_id: The ID of the reminder to complete
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        result = self._handle_json_response(
+            _lib.CompleteReminder(self._reader, reminder_id.encode("utf-8"))
+        )
+
+        if not result.get("success"):
+            raise RuntimeError(f"Failed to complete reminder: {result.get('error')}")
+
+    def uncomplete_reminder(self, reminder_id: str) -> None:
+        """Mark a reminder as not completed.
+
+        Args:
+            reminder_id: The ID of the reminder to mark as not completed
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        result = self._handle_json_response(
+            _lib.UncompleteReminder(self._reader, reminder_id.encode("utf-8"))
+        )
+
+        if not result.get("success"):
+            raise RuntimeError(f"Failed to mark reminder as not completed: {result.get('error')}")

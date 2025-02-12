@@ -39,5 +39,11 @@ _lib.CreateReminder.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 _lib.CreateList.restype = ctypes.POINTER(ctypes.c_char)
 _lib.CreateList.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
+_lib.CompleteReminder.restype = ctypes.POINTER(ctypes.c_char)
+_lib.CompleteReminder.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+
+_lib.UncompleteReminder.restype = ctypes.POINTER(ctypes.c_char)
+_lib.UncompleteReminder.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+
 _lib.FreeString.restype = None
 _lib.FreeString.argtypes = [ctypes.POINTER(ctypes.c_char)]

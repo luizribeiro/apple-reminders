@@ -687,6 +687,58 @@ def lists(output_format: OutputFormat) -> None:
     OutputFormatter.output_lists(reminder_lists, reminder_counts, fmt=output_format)
 
 
+@cli.command("done")
+@common_options
+@click.argument("reminder_ids", type=IDType(), nargs=-1, required=True)
+def mark_done(output_format: OutputFormat, reminder_ids: tuple[str, ...]) -> None:
+    """Mark reminders as completed"""
+    client = Client()
+    try:
+        for reminder_id in reminder_ids:
+            reminder = client.get_reminder(reminder_id)
+            client.complete_reminder(reminder_id)
+
+            if output_format == OutputFormat.JSON:
+                click.echo(json.dumps({"success": True, "id": reminder_id}))
+            else:
+                # Show the reminder that was marked as done
+                all_reminders = client.get_all_reminders()
+                short_id = shorten_id(reminder_id, [r.id for r in all_reminders])
+                console.print(f"✓ Marked as done: {reminder.title} {short_id}")
+
+    except RuntimeError as e:
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            console.print(f"[red]Error:[/red] {e}")
+
+
+@cli.command("undone")
+@common_options
+@click.argument("reminder_ids", type=IDType(), nargs=-1, required=True)
+def mark_undone(output_format: OutputFormat, reminder_ids: tuple[str, ...]) -> None:
+    """Mark reminders as not completed"""
+    client = Client()
+    try:
+        for reminder_id in reminder_ids:
+            reminder = client.get_reminder(reminder_id)
+            client.uncomplete_reminder(reminder_id)
+
+            if output_format == OutputFormat.JSON:
+                click.echo(json.dumps({"success": True, "id": reminder_id}))
+            else:
+                # Show the reminder that was marked as not done
+                all_reminders = client.get_all_reminders()
+                short_id = shorten_id(reminder_id, [r.id for r in all_reminders])
+                console.print(f"○ Marked as not done: {reminder.title} {short_id}")
+
+    except RuntimeError as e:
+        if output_format == OutputFormat.JSON:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            console.print(f"[red]Error:[/red] {e}")
+
+
 @cli.command()
 @common_options
 def stats(output_format: OutputFormat) -> None:

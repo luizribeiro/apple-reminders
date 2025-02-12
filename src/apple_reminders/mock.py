@@ -208,6 +208,38 @@ class MockSwiftAPI:
             return self._to_char_ptr([])
         return self._to_char_ptr([r.as_dict() for r in self.reminders[list_id_str].values()])
 
+    def CompleteReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
+        """Mark a reminder as completed."""
+        self._verify_reader(reader)
+        
+        reminder_id_str = decode_char_p(reminder_id)
+        if reminder_id_str is None:
+            raise ValueError("Reminder ID is required")
+        
+        # Search through all lists for the reminder
+        for list_reminders in self.reminders.values():
+            if reminder_id_str in list_reminders:
+                list_reminders[reminder_id_str].completed = True
+                return self._to_char_ptr({"success": True, "id": reminder_id_str})
+                
+        raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
+
+    def UncompleteReminder(self, reader: ctypes.c_void_p, reminder_id: ctypes.c_char_p) -> LP_c_char:
+        """Mark a reminder as not completed."""
+        self._verify_reader(reader)
+        
+        reminder_id_str = decode_char_p(reminder_id)
+        if reminder_id_str is None:
+            raise ValueError("Reminder ID is required")
+        
+        # Search through all lists for the reminder
+        for list_reminders in self.reminders.values():
+            if reminder_id_str in list_reminders:
+                list_reminders[reminder_id_str].completed = False
+                return self._to_char_ptr({"success": True, "id": reminder_id_str})
+                
+        raise RuntimeError(f"Reminder with ID '{reminder_id_str}' not found")
+
     def FreeString(self, ptr: LP_c_char) -> None:
         """Free a string pointer (no-op in Python)."""
         # No-op implementation since Python handles memory management

@@ -93,6 +93,63 @@ class TestClient(unittest.TestCase):
             # Cleanup explicitly
             client.cleanup()
 
+    def test_complete_reminder(self) -> None:
+        with MockRemindersTestHelper():
+            client = Client()
+            # Create a list and a reminder
+            list_id = client.create_list("Test List")
+            reminder_id = client.create_reminder(
+                title="Test Reminder",
+                list_id=list_id,
+            )
+
+            # Get initial state
+            reminder = client.get_reminder(reminder_id)
+            self.assertFalse(reminder.completed)
+
+            # Mark as completed
+            client.complete_reminder(reminder_id)
+
+            # Check completed state
+            reminder = client.get_reminder(reminder_id)
+            self.assertTrue(reminder.completed)
+
+            # Try to complete a non-existent reminder
+            with self.assertRaises(RuntimeError):
+                client.complete_reminder("non-existent-id")
+
+            # Cleanup explicitly
+            client.cleanup()
+
+    def test_uncomplete_reminder(self) -> None:
+        with MockRemindersTestHelper():
+            client = Client()
+            # Create a list and a reminder
+            list_id = client.create_list("Test List")
+            reminder_id = client.create_reminder(
+                title="Test Reminder",
+                list_id=list_id,
+            )
+
+            # Mark as completed first
+            client.complete_reminder(reminder_id)
+            reminder = client.get_reminder(reminder_id)
+            self.assertTrue(reminder.completed)
+
+            # Mark as not completed
+            client.uncomplete_reminder(reminder_id)
+
+            # Check uncompleted state
+            reminder = client.get_reminder(reminder_id)
+            self.assertFalse(reminder.completed)
+
+            # Try to uncomplete a non-existent reminder
+            with self.assertRaises(RuntimeError):
+                client.uncomplete_reminder("non-existent-id")
+
+            # Cleanup explicitly
+            client.cleanup()
+
 
 if __name__ == "__main__":
     unittest.main()

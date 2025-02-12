@@ -302,6 +302,68 @@ class RemindersReader {
         
         return CGColor(red: r, green: g, blue: b, alpha: 1.0)
     }
+
+    private func getReminder(_ reminderId: String) -> Result<EKReminder, Error> {
+        guard accessGranted else {
+            return .failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Access to Reminders was denied"]))
+        }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var fetchResult: Result<EKReminder, Error> = .failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Reminder not found"]))
+
+        let predicate = eventStore.predicateForReminders(in: nil)
+        eventStore.fetchReminders(matching: predicate) { reminders in
+            defer { semaphore.signal() }
+            
+            if let reminders = reminders,
+               let reminder = reminders.first(where: { $0.calendarItemIdentifier == reminderId }) {
+                fetchResult = .success(reminder)
+            }
+        }
+        
+        _ = semaphore.wait(timeout: .now() + 30.0)
+        return fetchResult
+    }
+
+    func completeReminder(_ reminderId: String) -> String {
+        let result: OperationResult
+        
+        switch getReminder(reminderId) {
+        case .success(let reminder):
+            reminder.isCompleted = true
+            do {
+                try eventStore.save(reminder, commit: true)
+                result = OperationResult(success: true, error: nil, id: reminder.calendarItemIdentifier)
+            } catch {
+                result = OperationResult(success: false, error: error.localizedDescription, id: nil)
+            }
+        case .failure(let error):
+            result = OperationResult(success: false, error: error.localizedDescription, id: nil)
+        }
+        
+        return (try? JSONEncoder().encode(result)).flatMap { String(data: $0, encoding: .utf8) }
+            ?? "{\"error\": \"Failed to encode result\"}"
+    }
+
+    func uncompleteReminder(_ reminderId: String) -> String {
+        let result: OperationResult
+        
+        switch getReminder(reminderId) {
+        case .success(let reminder):
+            reminder.isCompleted = false
+            do {
+                try eventStore.save(reminder, commit: true)
+                result = OperationResult(success: true, error: nil, id: reminder.calendarItemIdentifier)
+            } catch {
+                result = OperationResult(success: false, error: error.localizedDescription, id: nil)
+            }
+        case .failure(let error):
+            result = OperationResult(success: false, error: error.localizedDescription, id: nil)
+        }
+        
+        return (try? JSONEncoder().encode(result)).flatMap { String(data: $0, encoding: .utf8) }
+            ?? "{\"error\": \"Failed to encode result\"}"
+    }
 }
 
 // MARK: - C Interface
@@ -360,6 +422,22 @@ public func CreateList(_ readerRef: UnsafeMutableRawPointer, _ inputJson: Unsafe
     let reader = Unmanaged<RemindersReader>.fromOpaque(readerRef).takeUnretainedValue()
     let input = String(cString: inputJson)
     let result = reader.createList(input)
+    return strdup(result)
+}
+
+@_cdecl("CompleteReminder")
+public func CompleteReminder(_ readerRef: UnsafeMutableRawPointer, _ reminderId: UnsafePointer<Int8>) -> UnsafeMutablePointer<Int8> {
+    let reader = Unmanaged<RemindersReader>.fromOpaque(readerRef).takeUnretainedValue()
+    let reminderIdString = String(cString: reminderId)
+    let result = reader.completeReminder(reminderIdString)
+    return strdup(result)
+}
+
+@_cdecl("UncompleteReminder")
+public func UncompleteReminder(_ readerRef: UnsafeMutableRawPointer, _ reminderId: UnsafePointer<Int8>) -> UnsafeMutablePointer<Int8> {
+    let reader = Unmanaged<RemindersReader>.fromOpaque(readerRef).takeUnretainedValue()
+    let reminderIdString = String(cString: reminderId)
+    let result = reader.uncompleteReminder(reminderIdString)
     return strdup(result)
 }
 
