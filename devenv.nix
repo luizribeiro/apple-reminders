@@ -1,8 +1,4 @@
 { pkgs, ... }: {
-  # Disable cachix warning
-  cachix.enable = false;
-
-  # Name your project
   name = "apple-reminders";
 
   env.PYTHONPATH = "./src";
